@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 const (
@@ -121,5 +122,10 @@ WantedBy=multi-user.target
 }
 
 func reloadSystemd() error {
+	// systemctl daemon-reload fails when systemd is not PID 1 (e.g. in containers).
+	link, err := os.Readlink("/proc/1/exe")
+	if err != nil || !strings.Contains(link, "systemd") {
+		return nil
+	}
 	return exec.Command("systemctl", "daemon-reload").Run()
 }

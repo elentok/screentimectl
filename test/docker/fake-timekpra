@@ -1,0 +1,21 @@
+#!/bin/bash
+# Fake timekpra stub for integration testing.
+# Responds to --userinfo with parseable output.
+
+if [[ "$1" == "--userinfo" ]]; then
+    cat <<'EOF'
+ACTUAL_DAY_OF_WEEK;6
+ALLOWED_WEEKDAYS;1;2;3;4;5;6;7
+TIME_LEFT_TODAY_ALL;1800
+TIME_SPENT_BALANCE;3720
+CONTIGUOUS_ALLOWED;0
+EOF
+    exit 0
+fi
+
+if [[ "$1" == "--settimeleft" ]]; then
+    exit 0
+fi
+
+echo "fake-timekpra: unknown args: $*" >&2
+exit 1
