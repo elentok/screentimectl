@@ -22,3 +22,15 @@ jobs:
 
       - name: Build
         run: go build ./...
+
+  integration:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build test image
+        run: docker build -f test/docker/Dockerfile -t screentimectl-test .
+
+      - name: Run integration tests
+        run: docker run --rm screentimectl-test
