@@ -9,7 +9,7 @@ RUN go build -o /screentimectl .
 FROM ubuntu:24.04
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends sudo systemd && \
+    apt-get install -y --no-install-recommends sudo systemd ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 # Fake timekpra binary that returns parseable output
