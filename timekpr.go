@@ -38,7 +38,7 @@ func formatDuration(seconds int) string {
 // GetUserTime returns remaining and used seconds for a user.
 // Parses output of: timekpra --userinfo <user>
 func GetUserTime(user string) (UserTime, error) {
-	out, err := exec.Command("timekpra", "--userinfo", user).Output()
+	out, err := exec.Command("sudo", "timekpra", "--userinfo", user).Output()
 	if err != nil {
 		return UserTime{}, fmt.Errorf("timekpra --userinfo %s: %w", user, err)
 	}
@@ -61,19 +61,13 @@ func parseUserInfo(output string) (UserTime, error) {
 		fields[strings.ToUpper(match[1])] = v
 	}
 
-	remaining, hasRemaining := fields["TIME_LEFT_TODAY_ALL"]
-	if !hasRemaining {
-		// fallback key
-		remaining, hasRemaining = fields["TIMELEFT_TOTAL"]
-	}
+	// Try keys in order of preference
+	remaining, hasRemaining := lookupFirst(fields, "TIME_LEFT_DAY", "TIME_LEFT_TODAY_ALL", "TIMELEFT_TOTAL")
 	if !hasRemaining {
 		return UserTime{}, fmt.Errorf("could not parse remaining time from timekpra output:\n%s", output)
 	}
 
-	used := fields["TIME_SPENT_BALANCE"]
-	if used == 0 {
-		used = fields["TIME_SPENT_TODAY"]
-	}
+	used, _ := lookupFirst(fields, "TIME_SPENT_DAY", "TIME_SPENT_BALANCE", "TIME_SPENT_TODAY")
 
 	return UserTime{
 		RemainingSeconds: remaining,
@@ -81,23 +75,31 @@ func parseUserInfo(output string) (UserTime, error) {
 	}, nil
 }
 
+func lookupFirst(fields map[string]int, keys ...string) (int, bool) {
+	for _, k := range keys {
+		if v, ok := fields[k]; ok {
+			return v, true
+		}
+	}
+	return 0, false
+}
+
 // AddTime adds minutes to the user's remaining time.
 func AddTime(user string, minutes int) (UserTime, error) {
-	seconds := minutes * 60
-	arg := fmt.Sprintf("+%d", seconds)
-	cmd := exec.Command("sudo", "timekpra", "--settimeleft", user, arg)
+	arg := fmt.Sprintf("%dm", minutes)
+	cmd := exec.Command("sudo", "timekpra", "--settimeleft", user, "+", arg)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return UserTime{}, fmt.Errorf("timekpra --settimeleft %s %s: %w\n%s", user, arg, err, out)
+		return UserTime{}, fmt.Errorf("timekpra --settimeleft %s + %s: %w\n%s", user, arg, err, out)
 	}
 	return GetUserTime(user)
 }
 
 // SetTime sets the user's remaining time to exactly minutes (0 = lock).
 func SetTime(user string, minutes int) (UserTime, error) {
-	seconds := fmt.Sprintf("%d", minutes*60)
-	cmd := exec.Command("sudo", "timekpra", "--settimeleft", user, seconds)
+	arg := fmt.Sprintf("%dm", minutes)
+	cmd := exec.Command("sudo", "timekpra", "--settimeleft", user, "=", arg)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return UserTime{}, fmt.Errorf("timekpra --settimeleft %s %s: %w\n%s", user, seconds, err, out)
+		return UserTime{}, fmt.Errorf("timekpra --settimeleft %s = %s: %w\n%s", user, arg, err, out)
 	}
 	return GetUserTime(user)
 }

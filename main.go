@@ -58,6 +58,7 @@ func runDaemon() {
 	go startHTTPServer(cfg, bot)
 
 	log.Printf("screentimectl started (machine: %s)", cfg.MachineName)
+	bot.sendAll(fmt.Sprintf("screentimectl started (machine: %s)", cfg.MachineName))
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)

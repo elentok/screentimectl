@@ -7,11 +7,9 @@ import (
 func TestParseUserInfo(t *testing.T) {
 	// Sample timekpra --userinfo output format
 	sample := `
-ACTUAL_DAY_OF_WEEK;6
 ALLOWED_WEEKDAYS;1;2;3;4;5;6;7
-TIME_LEFT_TODAY_ALL;1800
-TIME_SPENT_BALANCE;3720
-CONTIGUOUS_ALLOWED;0
+TIME_SPENT_DAY;3720
+TIME_LEFT_DAY;1800
 `
 	ut, err := parseUserInfo(sample)
 	if err != nil {
