@@ -42,11 +42,16 @@ func (b *Bot) run() {
 	updates := b.api.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message == nil || !update.Message.IsCommand() {
+		if update.Message == nil {
 			continue
 		}
 		msg := update.Message
+		log.Printf("telegram: message from chat %d (@%s): %s", msg.Chat.ID, msg.From.UserName, msg.Text)
 		if !b.cfg.isAllowedChat(msg.Chat.ID) {
+			log.Printf("telegram: ignoring message from unallowed chat %d", msg.Chat.ID)
+			continue
+		}
+		if !msg.IsCommand() {
 			continue
 		}
 		b.handleCommand(msg)

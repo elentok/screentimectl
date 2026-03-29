@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -31,6 +32,22 @@ func runDoctor() {
 	check("sudoers rule installed", func() error {
 		if _, err := os.Stat(sudoersPath); err != nil {
 			return fmt.Errorf("%s not found", sudoersPath)
+		}
+		return nil
+	})
+
+	check("config file owned by screentimectl", func() error {
+		info, err := os.Stat(configDir + "/config.yaml")
+		if err != nil {
+			return err
+		}
+		stat := info.Sys().(*syscall.Stat_t)
+		u, err := user.Lookup(serviceUser)
+		if err != nil {
+			return fmt.Errorf("user %s not found", serviceUser)
+		}
+		if fmt.Sprint(stat.Uid) != u.Uid {
+			return fmt.Errorf("owned by uid %d, expected %s (%s)", stat.Uid, u.Uid, serviceUser)
 		}
 		return nil
 	})

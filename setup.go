@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
+	"strconv"
 	"strings"
 )
 
@@ -87,9 +89,11 @@ func createConfigDir() error {
 	}
 	cfgFile := configDir + "/config.yaml"
 	if _, err := os.Stat(cfgFile); os.IsNotExist(err) {
-		return os.WriteFile(cfgFile, []byte(exampleConfig), 0640)
+		if err := os.WriteFile(cfgFile, []byte(exampleConfig), 0640); err != nil {
+			return err
+		}
 	}
-	return nil // don't overwrite existing config
+	return chownToServiceUser(configDir, cfgFile)
 }
 
 func installSudoers() error {
@@ -119,6 +123,21 @@ WantedBy=multi-user.target
 `, self)
 
 	return os.WriteFile(servicePath, []byte(content), 0644)
+}
+
+func chownToServiceUser(paths ...string) error {
+	u, err := user.Lookup(serviceUser)
+	if err != nil {
+		return fmt.Errorf("looking up user %s: %w", serviceUser, err)
+	}
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(u.Gid)
+	for _, p := range paths {
+		if err := os.Chown(p, uid, gid); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func reloadSystemd() error {

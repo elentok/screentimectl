@@ -63,7 +63,7 @@ doctor_output=$(screentimectl doctor 2>&1)
 echo "$doctor_output"
 
 # Checks that should pass
-for check in "timekpra binary exists" "config file exists and parses" "systemd service installed" "sudoers rule installed" 'system user "testuser" exists'; do
+for check in "timekpra binary exists" "config file exists and parses" "systemd service installed" "sudoers rule installed" "config file owned by screentimectl" 'system user "testuser" exists'; do
     if echo "$doctor_output" | grep -qF "[OK]   $check"; then
         pass "doctor: $check"
     else
