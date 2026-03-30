@@ -14,7 +14,9 @@ const (
 	configDir      = "/etc/screentimectl"
 	sudoersPath    = "/etc/sudoers.d/screentimectl"
 	servicePath    = "/etc/systemd/system/screentimectl.service"
-	exampleConfig  = `machine_name: "My-PC"
+	pamService  = "/etc/pam.d/gdm-password"
+	pamRule     = "auth required pam_exec.so /usr/local/bin/screentimectl check-login"
+	exampleConfig = `machine_name: "My-PC"
 
 telegram:
   bot_token: "YOUR_BOT_TOKEN_HERE"
@@ -24,8 +26,15 @@ telegram:
 server:
   listen_addr: "127.0.0.1:3847"
 
+notifications:
+  thresholds: [30, 15, 5, 1]
+
 users:
   - name: "user1"
+    daily_limit_minutes: 300
+    allowed_hours:
+      start: 8
+      end: 18
 `
 	serviceFile = `[Unit]
 Description=screentimectl daemon
@@ -41,7 +50,10 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 `
-	sudoersContent = "screentimectl ALL=(ALL) NOPASSWD: /usr/bin/timekpra\n"
+	sudoersContent = `screentimectl ALL=(ALL) NOPASSWD: /usr/bin/loginctl
+screentimectl ALL=(ALL) NOPASSWD: /usr/bin/passwd -l *, /usr/bin/passwd -u *
+screentimectl ALL=(ALL:ALL) NOPASSWD: /usr/bin/notify-send, /usr/bin/espeak-ng
+`
 )
 
 func runSetup() error {
@@ -55,7 +67,9 @@ func runSetup() error {
 	}{
 		{"create system user", createSystemUser},
 		{"create config directory", createConfigDir},
+		{"create data directory", createDataDir},
 		{"install sudoers rule", installSudoers},
+		{"install PAM rule", installPAMRule},
 		{"install systemd service", installService},
 		{"reload systemd", reloadSystemd},
 	}
@@ -94,6 +108,38 @@ func createConfigDir() error {
 		}
 	}
 	return chownToServiceUser(configDir, cfgFile)
+}
+
+func createDataDir() error {
+	if err := os.MkdirAll(usageDir, 0755); err != nil {
+		return err
+	}
+	return chownToServiceUser(usageDir)
+}
+
+func installPAMRule() error {
+	data, err := os.ReadFile(pamService)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", pamService, err)
+	}
+	if strings.Contains(string(data), "screentimectl") {
+		return nil // already installed
+	}
+	// Prepend the rule before the first auth line
+	lines := strings.Split(string(data), "\n")
+	var result []string
+	inserted := false
+	for _, line := range lines {
+		if !inserted && strings.HasPrefix(strings.TrimSpace(line), "auth") {
+			result = append(result, pamRule)
+			inserted = true
+		}
+		result = append(result, line)
+	}
+	if !inserted {
+		result = append([]string{pamRule}, result...)
+	}
+	return os.WriteFile(pamService, []byte(strings.Join(result, "\n")), 0644)
 }
 
 func installSudoers() error {

@@ -10,10 +10,11 @@ import (
 const configPath = "/etc/screentimectl/config.yaml"
 
 type Config struct {
-	MachineName string         `yaml:"machine_name"`
-	Telegram    TelegramConfig `yaml:"telegram"`
-	Server      ServerConfig   `yaml:"server"`
-	Users       []UserConfig   `yaml:"users"`
+	MachineName   string             `yaml:"machine_name"`
+	Telegram      TelegramConfig     `yaml:"telegram"`
+	Server        ServerConfig       `yaml:"server"`
+	Users         []UserConfig       `yaml:"users"`
+	Notifications NotificationConfig `yaml:"notifications"`
 }
 
 type TelegramConfig struct {
@@ -26,7 +27,18 @@ type ServerConfig struct {
 }
 
 type UserConfig struct {
-	Name string `yaml:"name"`
+	Name              string       `yaml:"name"`
+	DailyLimitMinutes int          `yaml:"daily_limit_minutes"`
+	AllowedHours      AllowedHours `yaml:"allowed_hours"`
+}
+
+type AllowedHours struct {
+	Start int `yaml:"start"`
+	End   int `yaml:"end"`
+}
+
+type NotificationConfig struct {
+	Thresholds []int `yaml:"thresholds"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -52,6 +64,17 @@ func loadConfig(path string) (*Config, error) {
 	if cfg.Server.ListenAddr == "" {
 		cfg.Server.ListenAddr = "127.0.0.1:3847"
 	}
+	for i := range cfg.Users {
+		if cfg.Users[i].DailyLimitMinutes == 0 {
+			cfg.Users[i].DailyLimitMinutes = 300
+		}
+		if cfg.Users[i].AllowedHours.Start == 0 && cfg.Users[i].AllowedHours.End == 0 {
+			cfg.Users[i].AllowedHours = AllowedHours{Start: 8, End: 18}
+		}
+	}
+	if len(cfg.Notifications.Thresholds) == 0 {
+		cfg.Notifications.Thresholds = []int{30, 15, 5, 1}
+	}
 
 	return &cfg, nil
 }
@@ -72,4 +95,22 @@ func (c *Config) isValidUser(name string) bool {
 		}
 	}
 	return false
+}
+
+func (c *Config) getUser(name string) *UserConfig {
+	for i := range c.Users {
+		if c.Users[i].Name == name {
+			return &c.Users[i]
+		}
+	}
+	return nil
+}
+
+// saveConfig writes the config back to disk.
+func (c *Config) save(path string) error {
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return fmt.Errorf("marshalling config: %w", err)
+	}
+	return os.WriteFile(path, data, 0640)
 }

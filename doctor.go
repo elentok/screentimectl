@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"strings"
 	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -13,8 +14,18 @@ import (
 func runDoctor() {
 	cfg, cfgErr := loadConfig(configPath)
 
-	check("timekpra binary exists", func() error {
-		_, err := exec.LookPath("timekpra")
+	check("loginctl binary exists", func() error {
+		_, err := exec.LookPath("loginctl")
+		return err
+	})
+
+	check("notify-send binary exists", func() error {
+		_, err := exec.LookPath("notify-send")
+		return err
+	})
+
+	check("espeak-ng binary exists", func() error {
+		_, err := exec.LookPath("espeak-ng")
 		return err
 	})
 
@@ -48,6 +59,36 @@ func runDoctor() {
 		}
 		if fmt.Sprint(stat.Uid) != u.Uid {
 			return fmt.Errorf("owned by uid %d, expected %s (%s)", stat.Uid, u.Uid, serviceUser)
+		}
+		return nil
+	})
+
+	check("data directory exists", func() error {
+		info, err := os.Stat(usageDir)
+		if err != nil {
+			return fmt.Errorf("%s not found", usageDir)
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("%s is not a directory", usageDir)
+		}
+		stat := info.Sys().(*syscall.Stat_t)
+		u, err := user.Lookup(serviceUser)
+		if err != nil {
+			return fmt.Errorf("user %s not found", serviceUser)
+		}
+		if fmt.Sprint(stat.Uid) != u.Uid {
+			return fmt.Errorf("owned by uid %d, expected %s (%s)", stat.Uid, u.Uid, serviceUser)
+		}
+		return nil
+	})
+
+	check("PAM rule installed", func() error {
+		data, err := os.ReadFile(pamService)
+		if err != nil {
+			return fmt.Errorf("cannot read %s: %w", pamService, err)
+		}
+		if !strings.Contains(string(data), "screentimectl") {
+			return fmt.Errorf("screentimectl PAM rule not found in %s", pamService)
 		}
 		return nil
 	})

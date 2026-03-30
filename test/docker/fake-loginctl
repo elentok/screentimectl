@@ -1,0 +1,40 @@
+#!/bin/bash
+# Fake loginctl stub for integration testing.
+
+case "$1" in
+    list-sessions)
+        if [[ "$2" == "--no-legend" ]]; then
+            echo "    42 1000 testuser seat0 tty2  active no   -"
+        else
+            echo "SESSION  UID USER     SEAT  TTY   STATE  IDLE SINCE"
+            echo "     42 1000 testuser seat0 tty2  active no   -"
+            echo ""
+            echo "1 sessions listed."
+        fi
+        ;;
+    show-session)
+        cat <<'EOF'
+Id=42
+User=1000
+Name=testuser
+Timestamp=Sun 2026-03-29 10:00:00 UTC
+VTNr=2
+TTY=tty2
+Remote=no
+Service=gdm-password
+Type=x11
+Class=user
+Active=yes
+State=active
+IdleHint=no
+LockedHint=no
+EOF
+        ;;
+    lock-session|terminate-session)
+        exit 0
+        ;;
+    *)
+        echo "fake-loginctl: unknown command: $1" >&2
+        exit 1
+        ;;
+esac

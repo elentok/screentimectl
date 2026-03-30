@@ -4,25 +4,6 @@ import (
 	"testing"
 )
 
-func TestParseUserInfo(t *testing.T) {
-	// Sample timekpra --userinfo output format
-	sample := `
-ALLOWED_WEEKDAYS;1;2;3;4;5;6;7
-TIME_SPENT_DAY;3720
-TIME_LEFT_DAY;1800
-`
-	ut, err := parseUserInfo(sample)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if ut.RemainingSeconds != 1800 {
-		t.Errorf("RemainingSeconds = %d, want 1800", ut.RemainingSeconds)
-	}
-	if ut.UsedSeconds != 3720 {
-		t.Errorf("UsedSeconds = %d, want 3720", ut.UsedSeconds)
-	}
-}
-
 func TestFormatDuration(t *testing.T) {
 	cases := []struct {
 		seconds int
