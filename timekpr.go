@@ -5,6 +5,7 @@ import "fmt"
 type UserTime struct {
 	RemainingSeconds int
 	UsedSeconds      int
+	SessionStatus    string // "active", "locked", "idle", "offline"
 }
 
 func (t UserTime) RemainingStr() string {

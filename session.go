@@ -117,7 +117,34 @@ func (m *SessionManager) GetUserTime(user string) (UserTime, error) {
 	if u == nil {
 		return UserTime{}, fmt.Errorf("unknown user: %s", user)
 	}
-	return m.store.GetUserTime(user, u.DailyLimitMinutes*60), nil
+	ut := m.store.GetUserTime(user, u.DailyLimitMinutes*60)
+	ut.SessionStatus = getUserSessionStatus(user)
+	return ut, nil
+}
+
+func getUserSessionStatus(username string) string {
+	sessions := findUserSessions(username)
+	if len(sessions) == 0 {
+		return "offline"
+	}
+	for _, sid := range sessions {
+		out, err := exec.Command("loginctl", "show-session", sid).Output()
+		if err != nil {
+			continue
+		}
+		props := parseProperties(string(out))
+		if props["Active"] != "yes" {
+			continue
+		}
+		if props["LockedHint"] == "yes" {
+			return "locked"
+		}
+		if props["IdleHint"] == "yes" {
+			return "idle"
+		}
+		return "active"
+	}
+	return "offline"
 }
 
 // AddTime adds bonus minutes and sets an override if outside allowed hours.

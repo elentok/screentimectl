@@ -169,9 +169,9 @@ func (b *Bot) handleStatus(chatID int64, args []string) {
 	}
 
 	u := b.cfg.getUser(user)
-	b.send(chatID, fmt.Sprintf("%s has %s remaining (used %s today)\nAllowed hours: %dam - %dpm",
+	b.send(chatID, fmt.Sprintf("%s has %s remaining (used %s today)\nAllowed hours: %dam - %dpm\nSession: %s",
 		capitalize(user), ut.RemainingStr(), ut.UsedStr(),
-		u.AllowedHours.Start, u.AllowedHours.End%12))
+		u.AllowedHours.Start, u.AllowedHours.End%12, ut.SessionStatus))
 }
 
 func (b *Bot) handleHours(chatID int64, args []string) {

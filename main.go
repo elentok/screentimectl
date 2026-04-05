@@ -161,6 +161,9 @@ func runStatus() {
 		end := data["allowed_hours_end"]
 		fmt.Printf("Allowed hours: %dam - %dpm\n", int(start.(float64)), int(end.(float64))%12)
 	}
+	if status, ok := data["session_status"]; ok {
+		fmt.Printf("Session: %s\n", status)
+	}
 }
 
 func runAsk() {
