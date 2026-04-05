@@ -79,7 +79,8 @@ func runDaemon() {
 		log.Fatalf("usage store: %v", err)
 	}
 
-	mgr := NewSessionManager(cfg, store, nil)
+	actLog := NewActivityLog(logDir)
+	mgr := NewSessionManager(cfg, store, nil, actLog)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -116,6 +117,7 @@ func runDaemon() {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
 	log.Println("shutting down")
+	mgr.LogShutdown()
 	cancel()
 }
 
@@ -163,6 +165,23 @@ func runStatus() {
 	}
 	if status, ok := data["session_status"]; ok {
 		fmt.Printf("Session: %s\n", status)
+	}
+
+	if activity, ok := data["activity"]; ok && activity != nil {
+		if entries, ok := activity.([]any); ok && len(entries) > 0 {
+			var logEntries []LogEntry
+			for _, e := range entries {
+				if m, ok := e.(map[string]any); ok {
+					logEntries = append(logEntries, LogEntry{
+						Time:   fmt.Sprint(m["time"]),
+						Status: fmt.Sprint(m["status"]),
+					})
+				}
+			}
+			if len(logEntries) > 0 {
+				fmt.Printf("\nToday:\n%s", FormatTimeline(logEntries))
+			}
+		}
 	}
 }
 

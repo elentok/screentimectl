@@ -114,7 +114,10 @@ func createDataDir() error {
 	if err := os.MkdirAll(usageDir, 0755); err != nil {
 		return err
 	}
-	return chownToServiceUser(usageDir)
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		return err
+	}
+	return chownToServiceUser(usageDir, logDir)
 }
 
 func installPAMRule() error {

@@ -169,9 +169,18 @@ func (b *Bot) handleStatus(chatID int64, args []string) {
 	}
 
 	u := b.cfg.getUser(user)
-	b.send(chatID, fmt.Sprintf("%s has %s remaining (used %s today)\nAllowed hours: %dam - %dpm\nSession: %s",
+	text := fmt.Sprintf("%s has %s remaining (used %s today)\nAllowed hours: %dam - %dpm\nSession: %s",
 		capitalize(user), ut.RemainingStr(), ut.UsedStr(),
-		u.AllowedHours.Start, u.AllowedHours.End%12, ut.SessionStatus))
+		u.AllowedHours.Start, u.AllowedHours.End%12, ut.SessionStatus)
+
+	if b.mgr.actLog != nil {
+		entries, err := b.mgr.actLog.ReadDay(user, today())
+		if err == nil && len(entries) > 0 {
+			text += "\n\nToday:\n" + FormatTimeline(entries)
+		}
+	}
+
+	b.send(chatID, text)
 }
 
 func (b *Bot) handleHours(chatID int64, args []string) {

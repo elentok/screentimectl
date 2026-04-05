@@ -14,13 +14,21 @@ import (
 const pollInterval = 10 * time.Second
 
 type SessionManager struct {
-	cfg   *Config
-	store *UsageStore
-	bot   *Bot
+	cfg        *Config
+	store      *UsageStore
+	bot        *Bot
+	actLog     *ActivityLog
+	lastStatus map[string]string
 }
 
-func NewSessionManager(cfg *Config, store *UsageStore, bot *Bot) *SessionManager {
-	return &SessionManager{cfg: cfg, store: store, bot: bot}
+func NewSessionManager(cfg *Config, store *UsageStore, bot *Bot, actLog *ActivityLog) *SessionManager {
+	return &SessionManager{
+		cfg:        cfg,
+		store:      store,
+		bot:        bot,
+		actLog:     actLog,
+		lastStatus: make(map[string]string),
+	}
 }
 
 func (m *SessionManager) Run(ctx context.Context) {
@@ -69,18 +77,16 @@ func (m *SessionManager) pollUser(u UserConfig) {
 		if len(sessions) > 0 {
 			log.Printf("session: %s outside allowed hours, locking", u.Name)
 			lockOutUser(u.Name, sessions)
+			m.logTransition(u.Name, "locked")
 		}
 		return
 	}
 
 	sessions := findUserSessions(u.Name)
-	active := false
-	for _, sid := range sessions {
-		if isSessionActive(sid) {
-			active = true
-			break
-		}
-	}
+	status := getUserSessionStatus(u.Name)
+	m.logTransition(u.Name, status)
+
+	active := status == "active"
 
 	if active {
 		m.store.AddUsedTime(u.Name, int(pollInterval.Seconds()))
@@ -107,6 +113,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 		sendNotification(u.Name, msg)
 		sendTTS(u.Name, msg)
 		lockOutUser(u.Name, sessions)
+		m.logTransition(u.Name, "time-expired")
 		m.sendAll(fmt.Sprintf("%s's screen time has expired", capitalize(u.Name)))
 	}
 }
@@ -187,6 +194,32 @@ func (m *SessionManager) LockUser(user string) error {
 // UnlockUser unlocks the account.
 func (m *SessionManager) UnlockUser(user string) error {
 	return unlockAccount(user)
+}
+
+// logTransition logs a status change for the user if it differs from the last known status.
+func (m *SessionManager) logTransition(user, status string) {
+	if m.actLog == nil {
+		return
+	}
+	if m.lastStatus[user] == status {
+		return
+	}
+	m.lastStatus[user] = status
+	if err := m.actLog.AppendEntry(user, status); err != nil {
+		log.Printf("session: activity log for %s: %v", user, err)
+	}
+}
+
+// LogShutdown writes a shutdown entry for all configured users.
+func (m *SessionManager) LogShutdown() {
+	if m.actLog == nil {
+		return
+	}
+	for _, u := range m.cfg.Users {
+		if err := m.actLog.AppendEntry(u.Name, "shutdown"); err != nil {
+			log.Printf("session: shutdown log for %s: %v", u.Name, err)
+		}
+	}
 }
 
 // sendAll sends a message to all Telegram chats if the bot is connected.

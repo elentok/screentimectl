@@ -100,6 +100,13 @@ func handleStatus(w http.ResponseWriter, r *http.Request, cfg *Config, mgr *Sess
 		resp["allowed_hours_end"] = u.AllowedHours.End
 	}
 
+	if mgr.actLog != nil {
+		entries, err := mgr.actLog.ReadDay(user, today())
+		if err == nil {
+			resp["activity"] = entries
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
