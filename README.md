@@ -66,7 +66,7 @@ users:
 | `/give bob 1h30m` | Add 1.5 hours |
 | `/lock bob` | Lock Bob's screen and account immediately |
 | `/lock bob 15m` | Set Bob's remaining time to 15 minutes |
-| `/status bob` | Show remaining time, used time, and allowed hours |
+| `/status bob` | Show remaining time, used time, allowed hours, and activity timeline |
 | `/hours bob` | Show Bob's allowed hours |
 | `/hours bob 8-20` | Set allowed hours to 8am-8pm |
 | `/say bob Time for dinner` | Speak a message to Bob via TTS |
@@ -80,7 +80,7 @@ Using `/give` outside allowed hours automatically creates a temporary override s
 These commands are for the child to run on their own machine:
 
 ```sh
-screentimectl status   # show remaining screen time and allowed hours
+screentimectl status   # show remaining screen time, allowed hours, and today's activity
 screentimectl ask      # request more time (notifies parents via Telegram)
 screentimectl ask 30   # request 30 minutes specifically
 ```
@@ -112,7 +112,9 @@ curl "http://127.0.0.1:3847/status?user=bob"
 - The daemon polls `loginctl` every 10 seconds to check session state
 - Time only counts when the session is active (not locked or idle)
 - Daily usage is stored in `/var/lib/screentimectl/usage.json` and resets at midnight
+- Activity transitions (active/locked/idle/offline) are logged to `/var/lib/screentimectl/log/{user}/YYYY-MM-DD.log`
 - When time runs out: screen locks, account locks (`passwd -l`), parents are notified
+- When time is granted via `/give`, the child receives a desktop notification and TTS announcement
 - Login is enforced via PAM (`pam_exec`) -- the child cannot log in outside allowed hours or with no time remaining
 - Parents can grant time or adjust hours at any time via Telegram
 

@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.3.0
+
+Activity logging and status timeline.
+
+### What changed
+
+**Activity log** -- The daemon now tracks status transitions (active, locked, idle, offline) and writes them to per-user daily JSONL files at `/var/lib/screentimectl/log/{user}/YYYY-MM-DD.log`. Only transitions are logged, not every poll tick.
+
+**Timeline in /status** -- The `/status` command (Telegram, CLI, and HTTP) now shows a timeline of the day's activity:
+```
+Today:
+  08:00-10:30 (2h 30m) - active
+  10:30-11:00 (30m) - locked
+  11:00-14:30 (3h 30m) - active
+```
+
+**Shutdown logging** -- When the daemon receives SIGTERM (systemd stop or system poweroff), a `shutdown` entry is written to the activity log.
+
+**Time grant notifications** -- When a parent grants more time via `/give`, the child now receives a desktop notification and TTS announcement with the updated remaining time.
+
+### Upgrade notes
+
+1. Run `sudo screentimectl setup` to create the new `/var/lib/screentimectl/log/` directory
+2. Restart the service: `sudo systemctl restart screentimectl`
+
 ## v0.2.0
 
 Replace timekpr-next with standalone session management.
