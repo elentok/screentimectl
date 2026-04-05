@@ -13,6 +13,7 @@ import (
 	"os/user"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -80,21 +81,36 @@ func runDaemon() {
 
 	mgr := NewSessionManager(cfg, store, nil)
 
-	bot, err := newBot(cfg, mgr)
-	if err != nil {
-		log.Fatalf("telegram: %v", err)
-	}
-	mgr.bot = bot
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go bot.run()
-	go startHTTPServer(cfg, bot, mgr)
+	// Start session manager and HTTP server immediately — they don't need Telegram
 	go mgr.Run(ctx)
+	go startHTTPServer(cfg, nil, mgr)
 
-	log.Printf("screentimectl started (machine: %s)", cfg.MachineName)
-	bot.sendAll(fmt.Sprintf("screentimectl started (machine: %s)", cfg.MachineName))
+	// Connect to Telegram with retries
+	go func() {
+		var bot *Bot
+		for {
+			var err error
+			bot, err = newBot(cfg, mgr)
+			if err == nil {
+				break
+			}
+			log.Printf("telegram: %v (retrying in 30s)", err)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(30 * time.Second):
+			}
+		}
+		mgr.bot = bot
+		log.Printf("screentimectl started (machine: %s)", cfg.MachineName)
+		bot.sendAll(fmt.Sprintf("screentimectl started (machine: %s)", cfg.MachineName))
+		bot.run()
+	}()
+
+	log.Printf("screentimectl starting (machine: %s)", cfg.MachineName)
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)

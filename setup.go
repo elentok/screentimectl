@@ -52,7 +52,7 @@ WantedBy=multi-user.target
 `
 	sudoersContent = `screentimectl ALL=(ALL) NOPASSWD: /usr/bin/loginctl
 screentimectl ALL=(ALL) NOPASSWD: /usr/bin/passwd -l *, /usr/bin/passwd -u *
-screentimectl ALL=(ALL:ALL) NOPASSWD: /usr/bin/notify-send, /usr/bin/espeak-ng
+screentimectl ALL=(ALL) NOPASSWD: SETENV: /usr/bin/notify-send, /usr/bin/espeak-ng
 `
 )
 

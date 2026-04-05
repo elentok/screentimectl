@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"os/user"
 	"strings"
@@ -95,9 +96,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 			msg := fmt.Sprintf("You have %d minutes of screen time remaining", threshold)
 			sendNotification(u.Name, msg)
 			sendTTS(u.Name, msg)
-			if m.bot != nil {
-				m.bot.sendAll(fmt.Sprintf("%s has %s remaining", capitalize(u.Name), ut.RemainingStr()))
-			}
+			m.sendAll(fmt.Sprintf("%s has %s remaining", capitalize(u.Name), ut.RemainingStr()))
 		}
 	}
 
@@ -108,9 +107,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 		sendNotification(u.Name, msg)
 		sendTTS(u.Name, msg)
 		lockOutUser(u.Name, sessions)
-		if m.bot != nil {
-			m.bot.sendAll(fmt.Sprintf("%s's screen time has expired", capitalize(u.Name)))
-		}
+		m.sendAll(fmt.Sprintf("%s's screen time has expired", capitalize(u.Name)))
 	}
 }
 
@@ -163,6 +160,13 @@ func (m *SessionManager) LockUser(user string) error {
 // UnlockUser unlocks the account.
 func (m *SessionManager) UnlockUser(user string) error {
 	return unlockAccount(user)
+}
+
+// sendAll sends a message to all Telegram chats if the bot is connected.
+func (m *SessionManager) sendAll(text string) {
+	if m.bot != nil {
+		m.bot.sendAll(text)
+	}
 }
 
 // loginctl helpers
@@ -247,10 +251,11 @@ func sendNotification(username string, msg string) {
 	if uid == "" {
 		return
 	}
-	env := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
-	cmd := exec.Command("sudo", "-u", username, "env", env, "notify-send", "Screen Time", msg)
-	if err := cmd.Run(); err != nil {
-		log.Printf("session: notify-send for %s: %v", username, err)
+	xdg := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
+	cmd := exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "notify-send", "Screen Time", msg)
+	cmd.Env = append(os.Environ(), xdg)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("session: notify-send for %s: %v\ncmd: %s\noutput: %s", username, err, cmd.Args, out)
 	}
 }
 
@@ -259,10 +264,11 @@ func sendTTS(username string, msg string) {
 	if uid == "" {
 		return
 	}
-	env := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
-	cmd := exec.Command("sudo", "-u", username, "env", env, "espeak-ng", msg)
-	if err := cmd.Run(); err != nil {
-		log.Printf("session: espeak-ng for %s: %v", username, err)
+	xdg := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
+	cmd := exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "espeak-ng", msg)
+	cmd.Env = append(os.Environ(), xdg)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("session: espeak-ng for %s: %v\ncmd: %s\noutput: %s", username, err, cmd.Args, out)
 	}
 }
 

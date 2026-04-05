@@ -8,10 +8,10 @@ import (
 	"strconv"
 )
 
-func startHTTPServer(cfg *Config, bot *Bot, mgr *SessionManager) {
+func startHTTPServer(cfg *Config, _ *Bot, mgr *SessionManager) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/request-more-time", func(w http.ResponseWriter, r *http.Request) {
-		handleRequestMoreTime(w, r, cfg, bot, mgr)
+		handleRequestMoreTime(w, r, cfg, mgr)
 	})
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
 		handleStatus(w, r, cfg, mgr)
@@ -23,7 +23,7 @@ func startHTTPServer(cfg *Config, bot *Bot, mgr *SessionManager) {
 	}
 }
 
-func handleRequestMoreTime(w http.ResponseWriter, r *http.Request, cfg *Config, bot *Bot, mgr *SessionManager) {
+func handleRequestMoreTime(w http.ResponseWriter, r *http.Request, cfg *Config, mgr *SessionManager) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -68,7 +68,7 @@ func handleRequestMoreTime(w http.ResponseWriter, r *http.Request, cfg *Config, 
 			name, ut.UsedStr(), name)
 	}
 
-	bot.sendAll(text)
+	mgr.sendAll(text)
 	w.WriteHeader(http.StatusOK)
 }
 
