@@ -170,7 +170,11 @@ func (m *SessionManager) AddTime(user string, minutes int) (UserTime, error) {
 	if err := m.store.Save(); err != nil {
 		log.Printf("session: save after AddTime: %v", err)
 	}
-	return m.store.GetUserTime(user, u.DailyLimitMinutes*60), nil
+	ut := m.store.GetUserTime(user, u.DailyLimitMinutes*60)
+	msg := fmt.Sprintf("You got %d more minutes! You now have %s remaining", minutes, ut.RemainingStr())
+	sendNotification(user, msg)
+	sendTTS(user, msg)
+	return ut, nil
 }
 
 // SetTime sets the remaining time to exactly the given minutes.
