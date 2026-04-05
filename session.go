@@ -219,12 +219,6 @@ func lockSession(sessionID string) {
 	}
 }
 
-func terminateSession(sessionID string) {
-	if err := exec.Command("sudo", "loginctl", "terminate-session", sessionID).Run(); err != nil {
-		log.Printf("session: terminate-session %s: %v", sessionID, err)
-	}
-}
-
 func lockAccount(username string) error {
 	if err := exec.Command("sudo", "passwd", "-l", username).Run(); err != nil {
 		return fmt.Errorf("passwd -l %s: %w", username, err)
