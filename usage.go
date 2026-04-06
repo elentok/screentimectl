@@ -27,6 +27,7 @@ type UserUsage struct {
 	BonusSeconds       int       `json:"bonus_seconds"`
 	OverrideUntil      time.Time `json:"override_until,omitempty"`
 	NotifiedThresholds []int     `json:"notified_thresholds,omitempty"`
+	ExpiryHandled      bool      `json:"expiry_handled,omitempty"`
 }
 
 func NewUsageStore(path string) (*UsageStore, error) {
@@ -99,6 +100,7 @@ func (s *UsageStore) AddBonusTime(user string, seconds int) {
 	defer s.mu.Unlock()
 	u := s.getUser(user)
 	u.BonusSeconds += seconds
+	u.ExpiryHandled = false
 }
 
 func (s *UsageStore) SetOverride(user string, until time.Time) {
@@ -137,6 +139,7 @@ func (s *UsageStore) SetRemainingTime(user string, seconds int, limitSeconds int
 	if u.UsedSeconds < 0 {
 		u.UsedSeconds = 0
 	}
+	u.ExpiryHandled = seconds <= 0
 }
 
 func (s *UsageStore) MarkNotified(user string, threshold int) {
@@ -168,6 +171,18 @@ func (s *UsageStore) Save() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.save()
+}
+
+func (s *UsageStore) IsExpiryHandled(user string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.getUser(user).ExpiryHandled
+}
+
+func (s *UsageStore) SetExpiryHandled(user string, handled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.getUser(user).ExpiryHandled = handled
 }
 
 func usagePath() string {

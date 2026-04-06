@@ -13,6 +13,16 @@ import (
 
 const pollInterval = 10 * time.Second
 
+var (
+	findUserSessionsFunc     = findUserSessions
+	getUserSessionStatusFunc = getUserSessionStatus
+	lockOutUserFunc          = lockOutUser
+	unlockAccountFunc        = unlockAccount
+	sendNotificationFunc     = sendNotification
+	sendTTSFunc              = sendTTS
+	isWithinAllowedHoursFunc = isWithinAllowedHours
+)
+
 type SessionManager struct {
 	cfg        *Config
 	store      *UsageStore
@@ -50,8 +60,8 @@ func (m *SessionManager) poll() {
 	if newDay {
 		// Unlock accounts at day reset if within allowed hours
 		for _, u := range m.cfg.Users {
-			if isWithinAllowedHours(u.AllowedHours) {
-				if err := unlockAccount(u.Name); err != nil {
+			if isWithinAllowedHoursFunc(u.AllowedHours) {
+				if err := unlockAccountFunc(u.Name); err != nil {
 					log.Printf("session: unlock %s on day reset: %v", u.Name, err)
 				}
 			}
@@ -72,19 +82,18 @@ func (m *SessionManager) pollUser(u UserConfig) {
 	hasOverride := m.store.HasOverride(u.Name)
 
 	// Check allowed hours
-	if !isWithinAllowedHours(u.AllowedHours) && !hasOverride {
-		sessions := findUserSessions(u.Name)
+	if !isWithinAllowedHoursFunc(u.AllowedHours) && !hasOverride {
+		sessions := findUserSessionsFunc(u.Name)
 		if len(sessions) > 0 {
 			log.Printf("session: %s outside allowed hours, locking", u.Name)
-			lockOutUser(u.Name, sessions)
+			lockOutUserFunc(u.Name, sessions)
 			m.logTransition(u.Name, "locked")
 		}
 		return
 	}
 
-	sessions := findUserSessions(u.Name)
-	status := getUserSessionStatus(u.Name)
-	m.logTransition(u.Name, status)
+	sessions := findUserSessionsFunc(u.Name)
+	status := getUserSessionStatusFunc(u.Name)
 
 	active := status == "active"
 
@@ -93,6 +102,22 @@ func (m *SessionManager) pollUser(u UserConfig) {
 	}
 
 	ut := m.store.GetUserTime(u.Name, limitSeconds)
+	expired := ut.RemainingSeconds <= 0 && len(sessions) > 0
+	if expired {
+		if !m.store.IsExpiryHandled(u.Name) {
+			log.Printf("session: %s time expired, locking", u.Name)
+			msg := "Your screen time is up!"
+			sendNotificationFunc(u.Name, msg)
+			sendTTSFunc(u.Name, msg)
+			lockOutUserFunc(u.Name, sessions)
+			m.store.SetExpiryHandled(u.Name, true)
+			m.logTransition(u.Name, "time-expired")
+			m.sendAll(fmt.Sprintf("%s's screen time has expired", capitalize(u.Name)))
+		}
+		return
+	}
+	m.store.SetExpiryHandled(u.Name, false)
+	m.logTransition(u.Name, status)
 
 	// Check notification thresholds
 	remainingMinutes := ut.RemainingSeconds / 60
@@ -100,21 +125,10 @@ func (m *SessionManager) pollUser(u UserConfig) {
 		if remainingMinutes <= threshold && !m.store.AlreadyNotified(u.Name, threshold) {
 			m.store.MarkNotified(u.Name, threshold)
 			msg := fmt.Sprintf("You have %d minutes of screen time remaining", threshold)
-			sendNotification(u.Name, msg)
-			sendTTS(u.Name, msg)
+			sendNotificationFunc(u.Name, msg)
+			sendTTSFunc(u.Name, msg)
 			m.sendAll(fmt.Sprintf("%s has %s remaining", capitalize(u.Name), ut.RemainingStr()))
 		}
-	}
-
-	// Time expired
-	if ut.RemainingSeconds <= 0 && len(sessions) > 0 {
-		log.Printf("session: %s time expired, locking", u.Name)
-		msg := "Your screen time is up!"
-		sendNotification(u.Name, msg)
-		sendTTS(u.Name, msg)
-		lockOutUser(u.Name, sessions)
-		m.logTransition(u.Name, "time-expired")
-		m.sendAll(fmt.Sprintf("%s's screen time has expired", capitalize(u.Name)))
 	}
 }
 
@@ -125,7 +139,7 @@ func (m *SessionManager) GetUserTime(user string) (UserTime, error) {
 		return UserTime{}, fmt.Errorf("unknown user: %s", user)
 	}
 	ut := m.store.GetUserTime(user, u.DailyLimitMinutes*60)
-	ut.SessionStatus = getUserSessionStatus(user)
+	ut.SessionStatus = getUserSessionStatusFunc(user)
 	return ut, nil
 }
 
@@ -161,10 +175,10 @@ func (m *SessionManager) AddTime(user string, minutes int) (UserTime, error) {
 		return UserTime{}, fmt.Errorf("unknown user: %s", user)
 	}
 	m.store.AddBonusTime(user, minutes*60)
-	if !isWithinAllowedHours(u.AllowedHours) {
+	if !isWithinAllowedHoursFunc(u.AllowedHours) {
 		m.store.SetOverride(user, time.Now().Add(time.Duration(minutes)*time.Minute))
 	}
-	if err := unlockAccount(user); err != nil {
+	if err := unlockAccountFunc(user); err != nil {
 		log.Printf("session: unlock %s after AddTime: %v", user, err)
 	}
 	if err := m.store.Save(); err != nil {
@@ -172,8 +186,8 @@ func (m *SessionManager) AddTime(user string, minutes int) (UserTime, error) {
 	}
 	ut := m.store.GetUserTime(user, u.DailyLimitMinutes*60)
 	msg := fmt.Sprintf("You got %d more minutes! You now have %s remaining", minutes, ut.RemainingStr())
-	sendNotification(user, msg)
-	sendTTS(user, msg)
+	sendNotificationFunc(user, msg)
+	sendTTSFunc(user, msg)
 	return ut, nil
 }
 
@@ -192,12 +206,12 @@ func (m *SessionManager) SetTime(user string, minutes int) (UserTime, error) {
 
 // LockUser terminates all sessions and locks the account.
 func (m *SessionManager) LockUser(user string) error {
-	return lockOutUser(user, findUserSessions(user))
+	return lockOutUserFunc(user, findUserSessionsFunc(user))
 }
 
 // UnlockUser unlocks the account.
 func (m *SessionManager) UnlockUser(user string) error {
-	return unlockAccount(user)
+	return unlockAccountFunc(user)
 }
 
 // logTransition logs a status change for the user if it differs from the last known status.
