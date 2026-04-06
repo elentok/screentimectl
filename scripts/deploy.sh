@@ -18,11 +18,18 @@ echo "Uploading to $HOST..."
 scp "$TMPDIR/$BINARY" "$HOST:~/$BINARY"
 
 echo "Installing on $HOST..."
-ssh -t "$HOST" "sudo cp -f ~/$BINARY /usr/local/bin/$BINARY && sudo chmod +x /usr/local/bin/$BINARY && rm ~/$BINARY && sudo systemctl restart screentimectl"
+ssh -t "$HOST" 'bash -se' <<EOF
+echo "1/3. Installing /usr/local/bin/$BINARY"
+sudo install -m 0755 ~/$BINARY /usr/local/bin/$BINARY
+rm ~/$BINARY
+echo "2/3. Setting up screentimectl..."
+sudo screentimectl setup
+echo "3/3. Restarting screentimectl..."
+sudo systemctl restart screentimectl
+EOF
 
 echo "Done."
 echo
 
 echo "Showing Logs..."
 ssh -t "$HOST" "screentimectl logs"
-
