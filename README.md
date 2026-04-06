@@ -113,7 +113,7 @@ curl "http://127.0.0.1:3847/status?user=bob"
 - Time only counts when the session is active (not locked or idle)
 - Daily usage is stored in `/var/lib/screentimectl/usage.json` and resets at midnight
 - Activity transitions (active/locked/idle/offline) are logged to `/var/lib/screentimectl/log/{user}/YYYY-MM-DD.log`
-- When time runs out: screen locks, account locks (`passwd -l`), parents are notified
+- When time runs out: screen locks, account access is disabled via `chage -E 0`, and parents are notified
 - When time is granted via `/give`, the child receives a desktop notification and TTS announcement
 - Login is enforced via PAM (`pam_exec`) -- the child cannot log in outside allowed hours or with no time remaining
 - Parents can grant time or adjust hours at any time via Telegram

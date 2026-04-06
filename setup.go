@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	serviceUser    = "screentimectl"
-	configDir      = "/etc/screentimectl"
-	sudoersPath    = "/etc/sudoers.d/screentimectl"
-	servicePath    = "/etc/systemd/system/screentimectl.service"
-	pamService  = "/etc/pam.d/gdm-password"
-	pamRule     = "auth required pam_exec.so /usr/local/bin/screentimectl check-login"
+	serviceUser   = "screentimectl"
+	configDir     = "/etc/screentimectl"
+	sudoersPath   = "/etc/sudoers.d/screentimectl"
+	servicePath   = "/etc/systemd/system/screentimectl.service"
+	pamService    = "/etc/pam.d/gdm-password"
+	pamRule       = "auth required pam_exec.so /usr/local/bin/screentimectl check-login"
 	exampleConfig = `machine_name: "My-PC"
 
 telegram:
@@ -51,7 +51,7 @@ RestartSec=5
 WantedBy=multi-user.target
 `
 	sudoersContent = `screentimectl ALL=(ALL) NOPASSWD: /usr/bin/loginctl
-screentimectl ALL=(ALL) NOPASSWD: /usr/bin/passwd -l *, /usr/bin/passwd -u *
+screentimectl ALL=(ALL) NOPASSWD: /usr/bin/chage -E 0 *, /usr/bin/chage -E -1 *
 screentimectl ALL=(ALL) NOPASSWD: SETENV: /usr/bin/notify-send, /usr/bin/espeak-ng
 `
 )

@@ -21,6 +21,12 @@ var (
 	sendNotificationFunc     = sendNotification
 	sendTTSFunc              = sendTTS
 	isWithinAllowedHoursFunc = isWithinAllowedHours
+	newLockAccountCmdFunc    = func(username string) *exec.Cmd {
+		return exec.Command("sudo", "chage", "-E", "0", username)
+	}
+	newUnlockAccountCmdFunc = func(username string) *exec.Cmd {
+		return exec.Command("sudo", "chage", "-E", "-1", username)
+	}
 )
 
 type SessionManager struct {
@@ -298,15 +304,15 @@ func lockSession(sessionID string) {
 }
 
 func lockAccount(username string) error {
-	if err := exec.Command("sudo", "passwd", "-l", username).Run(); err != nil {
-		return fmt.Errorf("passwd -l %s: %w", username, err)
+	if err := newLockAccountCmdFunc(username).Run(); err != nil {
+		return fmt.Errorf("chage -E 0 %s: %w", username, err)
 	}
 	return nil
 }
 
 func unlockAccount(username string) error {
-	if err := exec.Command("sudo", "passwd", "-u", username).Run(); err != nil {
-		return fmt.Errorf("passwd -u %s: %w", username, err)
+	if err := newUnlockAccountCmdFunc(username).Run(); err != nil {
+		return fmt.Errorf("chage -E -1 %s: %w", username, err)
 	}
 	return nil
 }

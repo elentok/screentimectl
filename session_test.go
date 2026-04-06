@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -73,6 +75,8 @@ func stubSessionFuncs() func() {
 	prevNotify := sendNotificationFunc
 	prevTTS := sendTTSFunc
 	prevAllowed := isWithinAllowedHoursFunc
+	prevNewLockCmd := newLockAccountCmdFunc
+	prevNewUnlockCmd := newUnlockAccountCmdFunc
 
 	return func() {
 		findUserSessionsFunc = prevFindSessions
@@ -82,5 +86,36 @@ func stubSessionFuncs() func() {
 		sendNotificationFunc = prevNotify
 		sendTTSFunc = prevTTS
 		isWithinAllowedHoursFunc = prevAllowed
+		newLockAccountCmdFunc = prevNewLockCmd
+		newUnlockAccountCmdFunc = prevNewUnlockCmd
+	}
+}
+
+func TestAccountCommandsUseChageExpiry(t *testing.T) {
+	restore := stubSessionFuncs()
+	defer restore()
+
+	lockCmd := newLockAccountCmdFunc("bob")
+	if got, want := lockCmd.Args, []string{"sudo", "chage", "-E", "0", "bob"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("lock cmd = %v, want %v", got, want)
+	}
+
+	unlockCmd := newUnlockAccountCmdFunc("bob")
+	if got, want := unlockCmd.Args, []string{"sudo", "chage", "-E", "-1", "bob"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unlock cmd = %v, want %v", got, want)
+	}
+
+	newLockAccountCmdFunc = func(username string) *exec.Cmd {
+		return exec.Command("true")
+	}
+	newUnlockAccountCmdFunc = func(username string) *exec.Cmd {
+		return exec.Command("true")
+	}
+
+	if err := lockAccount("bob"); err != nil {
+		t.Fatalf("lockAccount: %v", err)
+	}
+	if err := unlockAccount("bob"); err != nil {
+		t.Fatalf("unlockAccount: %v", err)
 	}
 }

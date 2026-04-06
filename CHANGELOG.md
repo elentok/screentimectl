@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Switched account lock/unlock from `passwd -l` / `passwd -u` to `chage -E 0` / `chage -E -1` to avoid unlock failures on accounts without a usable password hash.
+
 ## v0.3.0
 
 Activity logging and status timeline.
