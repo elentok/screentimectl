@@ -297,7 +297,7 @@ func runCheckLogin() int {
 
 	// Check allowed hours
 	if !isWithinAllowedHours(u.AllowedHours) {
-		fmt.Fprintf(os.Stderr, "Login not allowed outside %d:00-%d:00\n",
+		fmt.Printf("Login allowed only between %d:00 and %d:00.\n",
 			u.AllowedHours.Start, u.AllowedHours.End)
 		return 1
 	}
@@ -305,7 +305,7 @@ func runCheckLogin() int {
 	// Check remaining time
 	ut := store.GetUserTime(pamUser, u.DailyLimitMinutes*60)
 	if ut.RemainingSeconds <= 0 {
-		fmt.Fprintf(os.Stderr, "No screen time remaining today\n")
+		fmt.Println("No screen time remaining today. Ask a parent for more time.")
 		return 1
 	}
 
@@ -323,4 +323,3 @@ func currentUser() string {
 	}
 	return u.Username
 }
-

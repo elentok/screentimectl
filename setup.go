@@ -15,7 +15,7 @@ const (
 	sudoersPath   = "/etc/sudoers.d/screentimectl"
 	servicePath   = "/etc/systemd/system/screentimectl.service"
 	pamService    = "/etc/pam.d/gdm-password"
-	pamRule       = "auth required pam_exec.so /usr/local/bin/screentimectl check-login"
+	pamRule       = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
 	exampleConfig = `machine_name: "My-PC"
 
 telegram:
