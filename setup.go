@@ -113,6 +113,12 @@ func installPAMRule() error {
 }
 
 func installTrayDependencies() error {
+	update := exec.Command("apt-get", "update")
+	update.Stdout = os.Stdout
+	update.Stderr = os.Stderr
+	if err := update.Run(); err != nil {
+		return err
+	}
 	cmd := exec.Command("apt-get", "install", "-y", "--no-install-recommends")
 	cmd.Args = append(cmd.Args, strings.Fields(trayDependencyPackages)...)
 	cmd.Stdout = os.Stdout
