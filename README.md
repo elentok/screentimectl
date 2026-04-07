@@ -8,6 +8,7 @@ A daemon that lets parents remotely control screen time on Linux machines via Te
 - A Telegram bot token (create one via [@BotFather](https://t.me/BotFather))
 - `espeak-ng` for TTS alerts
 - `libnotify-bin` for desktop notifications (`notify-send`)
+- Optional GNOME tray indicator dependencies installed by `setup`: `gnome-shell-extension-appindicator`, `python3-gi`, `gir1.2-gtk-3.0`, `gir1.2-ayatanaappindicator3-0.1`
 
 ## Install
 
@@ -81,6 +82,7 @@ These commands are for the child to run on their own machine:
 
 ```sh
 screentimectl status   # show remaining screen time, allowed hours, and today's activity
+screentimectl status --compact  # show only remaining screen time
 screentimectl ask      # request more time (notifies parents via Telegram)
 screentimectl ask 30   # request 30 minutes specifically
 ```
@@ -115,6 +117,7 @@ curl "http://127.0.0.1:3847/status?user=bob"
 - Activity transitions (active/locked/idle/offline) are logged to `/var/lib/screentimectl/log/{user}/YYYY-MM-DD.log`
 - When time runs out: screen locks, account access is disabled via `chage -E 0`, and parents are notified
 - When time is granted via `/give`, the child receives a desktop notification and TTS announcement
+- `setup` installs `/usr/local/bin/screentimectl-tray` and autostarts it for configured users to show remaining time from `status --compact`
 - Login is enforced via PAM (`pam_exec`) -- the child cannot log in outside allowed hours or with no time remaining
 - Parents can grant time or adjust hours at any time via Telegram
 

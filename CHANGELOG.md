@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Switched account lock/unlock from `passwd -l` / `passwd -u` to `chage -E 0` / `chage -E -1` to avoid unlock failures on accounts without a usable password hash.
+- Added `screentimectl status --compact` and a GNOME AppIndicator tray helper installed by `setup` to show remaining screen time from the user's session.
 
 ## v0.3.0
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -14,6 +15,7 @@ const (
 	configDir     = "/etc/screentimectl"
 	sudoersPath   = "/etc/sudoers.d/screentimectl"
 	servicePath   = "/etc/systemd/system/screentimectl.service"
+	trayPath      = "/usr/local/bin/screentimectl-tray"
 	pamService    = "/etc/pam.d/gdm-password"
 	pamRule       = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
 	exampleConfig = `machine_name: "My-PC"
@@ -54,6 +56,7 @@ WantedBy=multi-user.target
 screentimectl ALL=(ALL) NOPASSWD: /usr/bin/chage -E 0 *, /usr/bin/chage -E -1 *
 screentimectl ALL=(ALL) NOPASSWD: SETENV: /usr/bin/notify-send, /usr/bin/espeak-ng
 `
+	trayDependencyPackages = "gnome-shell-extension-appindicator python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
 )
 
 func runSetup() error {
@@ -70,6 +73,8 @@ func runSetup() error {
 		{"create data directory", createDataDir},
 		{"install sudoers rule", installSudoers},
 		{"install PAM rule", installPAMRule},
+		{"install tray dependencies", installTrayDependencies},
+		{"install tray indicator", installTrayIndicator},
 		{"install systemd service", installService},
 		{"reload systemd", reloadSystemd},
 	}
@@ -143,6 +148,63 @@ func installPAMRule() error {
 		result = append([]string{pamRule}, result...)
 	}
 	return os.WriteFile(pamService, []byte(strings.Join(result, "\n")), 0644)
+}
+
+func installTrayDependencies() error {
+	cmd := exec.Command("apt-get", "install", "-y", "--no-install-recommends")
+	cmd.Args = append(cmd.Args, strings.Fields(trayDependencyPackages)...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func installTrayIndicator() error {
+	if err := os.WriteFile(trayPath, []byte(trayScript), 0755); err != nil {
+		return fmt.Errorf("writing %s: %w", trayPath, err)
+	}
+
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("loading config for tray autostart: %w", err)
+	}
+	for _, u := range cfg.Users {
+		if err := installTrayAutostart(u.Name); err != nil {
+			return fmt.Errorf("autostart for %s: %w", u.Name, err)
+		}
+	}
+	return nil
+}
+
+func installTrayAutostart(username string) error {
+	u, err := user.Lookup(username)
+	if err != nil {
+		return nil
+	}
+	configDir := filepath.Join(u.HomeDir, ".config")
+	autostartDir := filepath.Join(configDir, "autostart")
+	if err := os.MkdirAll(autostartDir, 0755); err != nil {
+		return err
+	}
+	desktopPath := filepath.Join(autostartDir, "screentimectl-tray.desktop")
+	content := `[Desktop Entry]
+Type=Application
+Name=screentimectl
+Comment=Show remaining screen time
+Exec=/usr/local/bin/screentimectl-tray
+X-GNOME-Autostart-enabled=true
+`
+	if err := os.WriteFile(desktopPath, []byte(content), 0644); err != nil {
+		return err
+	}
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(u.Gid)
+	if err := os.Chown(configDir, uid, gid); err != nil {
+		return err
+	}
+	if err := os.Chown(autostartDir, uid, gid); err != nil {
+		return err
+	}
+	return os.Chown(desktopPath, uid, gid)
 }
 
 func installSudoers() error {

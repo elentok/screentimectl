@@ -29,6 +29,15 @@ func runDoctor() {
 		return err
 	})
 
+	check("python3 binary exists", func() error {
+		_, err := exec.LookPath("python3")
+		return err
+	})
+
+	check("tray AppIndicator Python bindings available", func() error {
+		return exec.Command("python3", "-c", `import gi; gi.require_version("Gtk", "3.0"); gi.require_version("AyatanaAppIndicator3", "0.1")`).Run()
+	})
+
 	check("config file exists and parses", func() error {
 		return cfgErr
 	})
@@ -78,6 +87,13 @@ func runDoctor() {
 		}
 		if fmt.Sprint(stat.Uid) != u.Uid {
 			return fmt.Errorf("owned by uid %d, expected %s (%s)", stat.Uid, u.Uid, serviceUser)
+		}
+		return nil
+	})
+
+	check("tray indicator installed", func() error {
+		if _, err := os.Stat(trayPath); err != nil {
+			return fmt.Errorf("%s not found", trayPath)
 		}
 		return nil
 	})

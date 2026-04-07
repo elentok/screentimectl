@@ -13,3 +13,23 @@ func TestPAMRuleShowsFriendlyOutput(t *testing.T) {
 		t.Fatalf("pamRule = %q, want stdout option", pamRule)
 	}
 }
+
+func TestTrayScriptUsesCompactStatus(t *testing.T) {
+	if !strings.Contains(trayScript, `"/usr/local/bin/screentimectl", "status", "--compact"`) {
+		t.Fatalf("trayScript does not call compact status")
+	}
+	if !strings.Contains(trayScript, "AyatanaAppIndicator3") {
+		t.Fatalf("trayScript does not use AyatanaAppIndicator3")
+	}
+	if !strings.HasPrefix(trayScript, "#!/usr/bin/python3\n") {
+		t.Fatalf("trayScript does not use system python")
+	}
+}
+
+func TestTrayDependenciesIncludePythonGI(t *testing.T) {
+	for _, pkg := range []string{"python3-gi", "gir1.2-gtk-3.0", "gir1.2-ayatanaappindicator3-0.1"} {
+		if !strings.Contains(trayDependencyPackages, pkg) {
+			t.Fatalf("trayDependencyPackages = %q, want %s", trayDependencyPackages, pkg)
+		}
+	}
+}

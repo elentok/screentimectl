@@ -65,6 +65,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "User commands:")
 	fmt.Fprintln(os.Stderr, "  status       Show your remaining screen time")
+	fmt.Fprintln(os.Stderr, "  status --compact")
+	fmt.Fprintln(os.Stderr, "               Show only remaining screen time")
 	fmt.Fprintln(os.Stderr, "  ask          Request more screen time")
 }
 
@@ -136,6 +138,7 @@ const defaultAddr = "127.0.0.1:3847"
 func runStatus() {
 	username := currentUser()
 	addr := daemonAddr()
+	compact := len(os.Args) >= 3 && os.Args[2] == "--compact"
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/status?user=%s", addr, username))
 	if err != nil {
@@ -158,7 +161,12 @@ func runStatus() {
 		UsedSeconds:      int(data["used_seconds"].(float64)),
 	}
 
-	fmt.Printf("You have %s remaining (used %s today)\n", ut.RemainingStr(), ut.UsedStr())
+	if compact {
+		fmt.Println(formatStatusSummary(ut, true))
+		return
+	}
+
+	fmt.Println(formatStatusSummary(ut, false))
 	if start, ok := data["allowed_hours_start"]; ok {
 		end := data["allowed_hours_end"]
 		fmt.Printf("Allowed hours: %dam - %dpm\n", int(start.(float64)), int(end.(float64))%12)
@@ -183,6 +191,13 @@ func runStatus() {
 			}
 		}
 	}
+}
+
+func formatStatusSummary(ut UserTime, compact bool) string {
+	if compact {
+		return fmt.Sprintf("%s remaining", ut.RemainingStr())
+	}
+	return fmt.Sprintf("You have %s remaining (used %s today)", ut.RemainingStr(), ut.UsedStr())
 }
 
 func runAsk() {
