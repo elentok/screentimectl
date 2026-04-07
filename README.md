@@ -96,10 +96,16 @@ screentimectl run          # start the daemon (normally via systemd)
 screentimectl setup        # install system dependencies (run as root)
 screentimectl doctor       # check configuration and dependencies
 screentimectl logs         # tail the service logs
+screentimectl give bob 30m # add 30 minutes for bob
+screentimectl lock bob     # lock bob's screen and account immediately
+screentimectl lock bob 15m # set bob's remaining time to 15 minutes
+screentimectl status bob   # show bob's remaining time and activity timeline
 screentimectl hours bob    # show allowed hours for bob
 screentimectl hours bob 8-20  # set allowed hours
-screentimectl say bob "Time for dinner"  # speak a message via TTS
+screentimectl say bob "Time for dinner"  # send a desktop notification and TTS message
 ```
+
+For SSH/admin use, the user argument can be omitted for `give`, `lock`, `status`, `hours`, and `say` when there is one configured user, or when exactly one configured user is active.
 
 ## HTTP API
 

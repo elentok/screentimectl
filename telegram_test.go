@@ -2,12 +2,12 @@ package main
 
 import "testing"
 
-func TestBotDefaultUser(t *testing.T) {
+func TestAdminCommandsDefaultUser(t *testing.T) {
 	restore := stubSessionFuncs()
 	defer restore()
 
-	b := &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}}}}
-	user, err := b.defaultUser()
+	cmd := NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}}}, nil)
+	user, err := cmd.defaultUser()
 	if err != nil {
 		t.Fatalf("defaultUser single user: %v", err)
 	}
@@ -15,14 +15,14 @@ func TestBotDefaultUser(t *testing.T) {
 		t.Fatalf("defaultUser single user = %q, want bob", user)
 	}
 
-	b = &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}, {Name: "alice"}}}}
+	cmd = NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}, {Name: "alice"}}}, nil)
 	getUserSessionStatusFunc = func(user string) string {
 		if user == "alice" {
 			return "active"
 		}
 		return "locked"
 	}
-	user, err = b.defaultUser()
+	user, err = cmd.defaultUser()
 	if err != nil {
 		t.Fatalf("defaultUser active user: %v", err)
 	}
@@ -31,20 +31,20 @@ func TestBotDefaultUser(t *testing.T) {
 	}
 
 	getUserSessionStatusFunc = func(string) string { return "locked" }
-	if _, err := b.defaultUser(); err == nil {
+	if _, err := cmd.defaultUser(); err == nil {
 		t.Fatal("defaultUser with no active user succeeded, want error")
 	}
 
 	getUserSessionStatusFunc = func(string) string { return "active" }
-	if _, err := b.defaultUser(); err == nil {
+	if _, err := cmd.defaultUser(); err == nil {
 		t.Fatal("defaultUser with multiple active users succeeded, want error")
 	}
 }
 
-func TestBotParsesOmittedUserCommands(t *testing.T) {
-	b := &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}}}}
+func TestAdminCommandsParsesOmittedUserCommands(t *testing.T) {
+	cmd := NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}}}, nil)
 
-	user, duration, err := b.parseUserDuration([]string{"15m"})
+	user, duration, err := cmd.parseUserDuration([]string{"15m"})
 	if err != nil {
 		t.Fatalf("parseUserDuration: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestBotParsesOmittedUserCommands(t *testing.T) {
 		t.Fatalf("parseUserDuration = %q, %q; want bob, 15m", user, duration)
 	}
 
-	user, duration, err = b.parseUserOptionalDuration(nil)
+	user, duration, err = cmd.parseUserOptionalDuration(nil)
 	if err != nil {
 		t.Fatalf("parseUserOptionalDuration no args: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestBotParsesOmittedUserCommands(t *testing.T) {
 		t.Fatalf("parseUserOptionalDuration no args = %q, %q; want bob, empty", user, duration)
 	}
 
-	user, duration, err = b.parseUserOptionalDuration([]string{"15m"})
+	user, duration, err = cmd.parseUserOptionalDuration([]string{"15m"})
 	if err != nil {
 		t.Fatalf("parseUserOptionalDuration duration: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestBotParsesOmittedUserCommands(t *testing.T) {
 		t.Fatalf("parseUserOptionalDuration duration = %q, %q; want bob, 15m", user, duration)
 	}
 
-	user, hours, err := b.parseUserOptionalHours([]string{"8-20"})
+	user, hours, err := cmd.parseUserOptionalHours([]string{"8-20"})
 	if err != nil {
 		t.Fatalf("parseUserOptionalHours: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestBotParsesOmittedUserCommands(t *testing.T) {
 		t.Fatalf("parseUserOptionalHours = %q, %q; want bob, 8-20", user, hours)
 	}
 
-	user, msg, err := b.parseUserMessage([]string{"hello", "there"})
+	user, msg, err := cmd.parseUserMessage([]string{"hello", "there"})
 	if err != nil {
 		t.Fatalf("parseUserMessage: %v", err)
 	}
@@ -85,11 +85,11 @@ func TestBotParsesOmittedUserCommands(t *testing.T) {
 	}
 }
 
-func TestBotParsesOmittedUserWithActiveFallback(t *testing.T) {
+func TestAdminCommandsParsesOmittedUserWithActiveFallback(t *testing.T) {
 	restore := stubSessionFuncs()
 	defer restore()
 
-	b := &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}, {Name: "alice"}}}}
+	cmd := NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}, {Name: "alice"}}}, nil)
 	getUserSessionStatusFunc = func(user string) string {
 		if user == "alice" {
 			return "active"
@@ -97,7 +97,7 @@ func TestBotParsesOmittedUserWithActiveFallback(t *testing.T) {
 		return "locked"
 	}
 
-	user, duration, err := b.parseUserDuration([]string{"15m"})
+	user, duration, err := cmd.parseUserDuration([]string{"15m"})
 	if err != nil {
 		t.Fatalf("parseUserDuration active fallback: %v", err)
 	}
@@ -106,10 +106,10 @@ func TestBotParsesOmittedUserWithActiveFallback(t *testing.T) {
 	}
 }
 
-func TestBotParsesExplicitUserCommands(t *testing.T) {
-	b := &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}, {Name: "alice"}}}}
+func TestAdminCommandsParsesExplicitUserCommands(t *testing.T) {
+	cmd := NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}, {Name: "alice"}}}, nil)
 
-	user, duration, err := b.parseUserDuration([]string{"alice", "15m"})
+	user, duration, err := cmd.parseUserDuration([]string{"alice", "15m"})
 	if err != nil {
 		t.Fatalf("parseUserDuration explicit: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestBotParsesExplicitUserCommands(t *testing.T) {
 		t.Fatalf("parseUserDuration explicit = %q, %q; want alice, 15m", user, duration)
 	}
 
-	user, duration, err = b.parseUserOptionalDuration([]string{"alice"})
+	user, duration, err = cmd.parseUserOptionalDuration([]string{"alice"})
 	if err != nil {
 		t.Fatalf("parseUserOptionalDuration explicit: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestBotParsesExplicitUserCommands(t *testing.T) {
 		t.Fatalf("parseUserOptionalDuration explicit = %q, %q; want alice, empty", user, duration)
 	}
 
-	user, hours, err := b.parseUserOptionalHours([]string{"alice", "8-20"})
+	user, hours, err := cmd.parseUserOptionalHours([]string{"alice", "8-20"})
 	if err != nil {
 		t.Fatalf("parseUserOptionalHours explicit: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestBotParsesExplicitUserCommands(t *testing.T) {
 		t.Fatalf("parseUserOptionalHours explicit = %q, %q; want alice, 8-20", user, hours)
 	}
 
-	user, msg, err := b.parseUserMessage([]string{"alice", "hello"})
+	user, msg, err := cmd.parseUserMessage([]string{"alice", "hello"})
 	if err != nil {
 		t.Fatalf("parseUserMessage explicit: %v", err)
 	}
@@ -142,18 +142,18 @@ func TestBotParsesExplicitUserCommands(t *testing.T) {
 	}
 }
 
-func TestBotParseUserMessageRequiresMessageForExplicitUser(t *testing.T) {
-	b := &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}}}}
+func TestAdminCommandsParseUserMessageRequiresMessageForExplicitUser(t *testing.T) {
+	cmd := NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}}}, nil)
 
-	if _, _, err := b.parseUserMessage([]string{"bob"}); err == nil {
+	if _, _, err := cmd.parseUserMessage([]string{"bob"}); err == nil {
 		t.Fatal("parseUserMessage explicit user without message succeeded, want error")
 	}
 }
 
-func TestBotParseUserDurationRequiresDurationForExplicitUser(t *testing.T) {
-	b := &Bot{cfg: &Config{Users: []UserConfig{{Name: "bob"}}}}
+func TestAdminCommandsParseUserDurationRequiresDurationForExplicitUser(t *testing.T) {
+	cmd := NewAdminCommands(&Config{Users: []UserConfig{{Name: "bob"}}}, nil)
 
-	if _, _, err := b.parseUserDuration([]string{"bob"}); err == nil {
+	if _, _, err := cmd.parseUserDuration([]string{"bob"}); err == nil {
 		t.Fatal("parseUserDuration explicit user without duration succeeded, want error")
 	}
 }

@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"os/user"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -38,10 +37,14 @@ func main() {
 		runStatus()
 	case "ask":
 		runAsk()
+	case "give":
+		runAdminCommand("give", os.Args[2:])
+	case "lock":
+		runAdminCommand("lock", os.Args[2:])
 	case "hours":
-		runHours()
+		runAdminCommand("hours", os.Args[2:])
 	case "say":
-		runSay()
+		runAdminCommand("say", os.Args[2:])
 	case "check-login":
 		os.Exit(runCheckLogin())
 	default:
@@ -59,8 +62,11 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  setup        Install system dependencies (run as root)")
 	fmt.Fprintln(os.Stderr, "  doctor       Check system configuration")
 	fmt.Fprintln(os.Stderr, "  logs         Follow service logs")
+	fmt.Fprintln(os.Stderr, "  give         Add time for a user")
+	fmt.Fprintln(os.Stderr, "  lock         Lock a user's screen and account, or set remaining time")
+	fmt.Fprintln(os.Stderr, "  status       Show remaining time for the current or target user")
 	fmt.Fprintln(os.Stderr, "  hours        View or set allowed hours for a user")
-	fmt.Fprintln(os.Stderr, "  say          Speak a message to a user via TTS")
+	fmt.Fprintln(os.Stderr, "  say          Send a spoken and desktop message to a user")
 	fmt.Fprintln(os.Stderr, "  check-login  Check if a user is allowed to log in (used by PAM)")
 	fmt.Fprintln(os.Stderr, "")
 	fmt.Fprintln(os.Stderr, "User commands:")
@@ -136,10 +142,87 @@ func runLogs() {
 const defaultAddr = "127.0.0.1:3847"
 
 func runStatus() {
-	username := currentUser()
-	addr := daemonAddr()
-	compact := len(os.Args) >= 3 && os.Args[2] == "--compact"
+	compact, username, err := parseStatusArgs(os.Args[2:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Usage: screentimectl status [user] [--compact]: %v\n", err)
+		os.Exit(1)
+	}
 
+	if username != "" {
+		runAdminStatus(username, compact)
+		return
+	}
+
+	current := currentUser()
+	if commands, err := newAdminCommands(); err == nil && !commands.cfg.isValidUser(current) {
+		if compact {
+			username, err := commands.defaultUser()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "status: %v\n", err)
+				os.Exit(1)
+			}
+			text, err := commands.StatusSummaryForUser(username, true)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "status: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(text)
+			return
+		}
+
+		text, err := commands.Status(nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "status: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(text)
+		return
+	}
+
+	printStatusFromHTTP(current, compact)
+}
+
+func parseStatusArgs(args []string) (bool, string, error) {
+	var compact bool
+	var username string
+	for _, arg := range args {
+		if arg == "--compact" {
+			compact = true
+			continue
+		}
+		if username != "" {
+			return false, "", fmt.Errorf("too many arguments")
+		}
+		username = arg
+	}
+	return compact, username, nil
+}
+
+func runAdminStatus(username string, compact bool) {
+	commands, err := newAdminCommands()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "status: %v\n", err)
+		os.Exit(1)
+	}
+	if compact {
+		text, err := commands.StatusSummaryForUser(username, true)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "status: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println(text)
+		return
+	}
+	text, err := commands.StatusForUser(username)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "status: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(text)
+}
+
+func printStatusFromHTTP(username string, compact bool) {
+	addr := daemonAddr()
 	resp, err := http.Get(fmt.Sprintf("http://%s/status?user=%s", addr, username))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to connect to daemon: %v\n", err)
@@ -193,6 +276,47 @@ func runStatus() {
 	}
 }
 
+func newAdminCommands() (*AdminCommands, error) {
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("config: %w", err)
+	}
+
+	store, err := NewUsageStore(usagePath())
+	if err != nil {
+		return nil, fmt.Errorf("usage store: %w", err)
+	}
+
+	return NewAdminCommands(cfg, NewSessionManager(cfg, store, nil, NewActivityLog(logDir))), nil
+}
+
+func runAdminCommand(command string, args []string) {
+	commands, err := newAdminCommands()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", command, err)
+		os.Exit(1)
+	}
+
+	var text string
+	switch command {
+	case "give":
+		text, err = commands.Give(args)
+	case "lock":
+		text, err = commands.Lock(args)
+	case "hours":
+		text, err = commands.Hours(args)
+	case "say":
+		text, err = commands.Say(args)
+	default:
+		err = fmt.Errorf("unknown admin command: %s", command)
+	}
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", command, err)
+		os.Exit(1)
+	}
+	fmt.Println(text)
+}
+
 func formatStatusSummary(ut UserTime, compact bool) string {
 	if compact {
 		return fmt.Sprintf("%s remaining", ut.RemainingStr())
@@ -231,57 +355,6 @@ func daemonAddr() string {
 		return addr
 	}
 	return defaultAddr
-}
-
-func runHours() {
-	if len(os.Args) < 3 || len(os.Args) > 4 {
-		fmt.Fprintln(os.Stderr, "Usage: screentimectl hours {user} [start-end]")
-		os.Exit(1)
-	}
-
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "config: %v\n", err)
-		os.Exit(1)
-	}
-
-	username := os.Args[2]
-	u := cfg.getUser(username)
-	if u == nil {
-		fmt.Fprintf(os.Stderr, "unknown user: %s\n", username)
-		os.Exit(1)
-	}
-
-	if len(os.Args) == 3 {
-		fmt.Printf("Allowed hours for %s: %dam - %dpm\n",
-			capitalize(username), u.AllowedHours.Start, u.AllowedHours.End%12)
-		return
-	}
-
-	start, end, err := parseHoursRange(os.Args[3])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "invalid hours: %v\n", err)
-		os.Exit(1)
-	}
-
-	u.AllowedHours = AllowedHours{Start: start, End: end}
-	if err := cfg.save(configPath); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to save config: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Printf("Updated allowed hours for %s: %dam - %dpm\n",
-		capitalize(username), start, end%12)
-}
-
-func runSay() {
-	if len(os.Args) < 4 {
-		fmt.Fprintln(os.Stderr, "Usage: screentimectl say {user} {text...}")
-		os.Exit(1)
-	}
-	username := os.Args[2]
-	text := strings.Join(os.Args[3:], " ")
-	sendTTS(username, text)
 }
 
 func runCheckLogin() int {
