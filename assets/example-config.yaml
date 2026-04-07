@@ -1,0 +1,19 @@
+machine_name: "My-PC"
+
+telegram:
+  bot_token: "YOUR_BOT_TOKEN_HERE"
+  allowed_chat_ids:
+    - 111111111
+
+server:
+  listen_addr: "127.0.0.1:3847"
+
+notifications:
+  thresholds: [30, 15, 5, 1]
+
+users:
+  - name: "user1"
+    daily_limit_minutes: 300
+    allowed_hours:
+      start: 8
+      end: 18

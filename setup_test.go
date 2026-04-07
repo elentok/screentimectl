@@ -33,3 +33,25 @@ func TestTrayDependenciesIncludePythonGI(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupAssets(t *testing.T) {
+	for name, content := range map[string]string{
+		"exampleConfig":  exampleConfig,
+		"serviceFile":    serviceFile,
+		"sudoersContent": sudoersContent,
+		"trayScript":     trayScript,
+	} {
+		if strings.TrimSpace(content) == "" {
+			t.Fatalf("%s is empty", name)
+		}
+	}
+	if !strings.Contains(exampleConfig, `machine_name: "My-PC"`) {
+		t.Fatalf("exampleConfig missing machine name")
+	}
+	if !strings.Contains(serviceFile, "ExecStart=/usr/local/bin/screentimectl run") {
+		t.Fatalf("serviceFile missing ExecStart")
+	}
+	if !strings.Contains(sudoersContent, "/usr/bin/chage -E 0 *") {
+		t.Fatalf("sudoersContent missing chage rule")
+	}
+}

@@ -11,51 +11,13 @@ import (
 )
 
 const (
-	serviceUser   = "screentimectl"
-	configDir     = "/etc/screentimectl"
-	sudoersPath   = "/etc/sudoers.d/screentimectl"
-	servicePath   = "/etc/systemd/system/screentimectl.service"
-	trayPath      = "/usr/local/bin/screentimectl-tray"
-	pamService    = "/etc/pam.d/gdm-password"
-	pamRule       = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
-	exampleConfig = `machine_name: "My-PC"
-
-telegram:
-  bot_token: "YOUR_BOT_TOKEN_HERE"
-  allowed_chat_ids:
-    - 111111111
-
-server:
-  listen_addr: "127.0.0.1:3847"
-
-notifications:
-  thresholds: [30, 15, 5, 1]
-
-users:
-  - name: "user1"
-    daily_limit_minutes: 300
-    allowed_hours:
-      start: 8
-      end: 18
-`
-	serviceFile = `[Unit]
-Description=screentimectl daemon
-After=network.target
-
-[Service]
-Type=simple
-User=screentimectl
-ExecStart=/usr/local/bin/screentimectl run
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-`
-	sudoersContent = `screentimectl ALL=(ALL) NOPASSWD: /usr/bin/loginctl
-screentimectl ALL=(ALL) NOPASSWD: /usr/bin/chage -E 0 *, /usr/bin/chage -E -1 *
-screentimectl ALL=(ALL) NOPASSWD: SETENV: /usr/bin/notify-send, /usr/bin/espeak-ng
-`
+	serviceUser            = "screentimectl"
+	configDir              = "/etc/screentimectl"
+	sudoersPath            = "/etc/sudoers.d/screentimectl"
+	servicePath            = "/etc/systemd/system/screentimectl.service"
+	trayPath               = "/usr/local/bin/screentimectl-tray"
+	pamService             = "/etc/pam.d/gdm-password"
+	pamRule                = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
 	trayDependencyPackages = "gnome-shell-extension-appindicator python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
 )
 

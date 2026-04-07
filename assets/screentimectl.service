@@ -1,0 +1,13 @@
+[Unit]
+Description=screentimectl daemon
+After=network.target
+
+[Service]
+Type=simple
+User=screentimectl
+ExecStart=/usr/local/bin/screentimectl run
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
