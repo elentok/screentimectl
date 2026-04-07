@@ -29,6 +29,7 @@ assert_file /etc/screentimectl/config.yaml "config file created"
 assert_file /etc/sudoers.d/screentimectl   "sudoers rule created"
 assert_file /etc/systemd/system/screentimectl.service "systemd service created"
 assert_file /var/lib/screentimectl         "data directory created"
+assert_file /usr/local/bin/screentimectl-tray "tray indicator installed"
 
 if id screentimectl &>/dev/null; then
     pass "system user created"
@@ -88,7 +89,7 @@ doctor_output=$(screentimectl doctor 2>&1)
 echo "$doctor_output"
 
 # Checks that should pass
-for check in "loginctl binary exists" "notify-send binary exists" "espeak-ng binary exists" "config file exists and parses" "systemd service installed" "sudoers rule installed" "config file owned by screentimectl" "data directory exists" "PAM rule installed" 'system user "testuser" exists'; do
+for check in "loginctl binary exists" "notify-send binary exists" "espeak-ng binary exists" "python3 binary exists" "tray AppIndicator Python bindings available" "config file exists and parses" "systemd service installed" "sudoers rule installed" "config file owned by screentimectl" "data directory exists" "tray indicator installed" "PAM rule installed" 'system user "testuser" exists'; do
     if echo "$doctor_output" | grep -qF "[OK]   $check"; then
         pass "doctor: $check"
     else
