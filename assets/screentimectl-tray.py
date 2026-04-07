@@ -19,7 +19,7 @@ def status_text():
 
 indicator = AppIndicator3.Indicator.new(
     "screentimectl",
-    "appointment-soon-symbolic",
+    "alarm-symbolic",
     AppIndicator3.IndicatorCategory.APPLICATION_STATUS,
 )
 indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
