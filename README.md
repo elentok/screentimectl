@@ -63,16 +63,18 @@ users:
 
 | Command | Effect |
 |---|---|
-| `/give bob 30m` | Add 30 minutes to Bob's time |
-| `/give bob 1h30m` | Add 1.5 hours |
-| `/lock bob` | Lock Bob's screen and account immediately |
-| `/lock bob 15m` | Set Bob's remaining time to 15 minutes |
-| `/status bob` | Show remaining time, used time, allowed hours, and activity timeline |
-| `/hours bob` | Show Bob's allowed hours |
-| `/hours bob 8-20` | Set allowed hours to 8am-8pm |
-| `/say bob Time for dinner` | Speak a message to Bob via TTS |
+| `/give [bob] 30m` | Add 30 minutes to Bob's time |
+| `/give [bob] 1h30m` | Add 1.5 hours |
+| `/lock [bob]` | Lock Bob's screen and account immediately |
+| `/lock [bob] 15m` | Set Bob's remaining time to 15 minutes |
+| `/status [bob]` | Show remaining time, used time, allowed hours, and activity timeline |
+| `/hours [bob]` | Show Bob's allowed hours |
+| `/hours [bob] 8-20` | Set allowed hours to 8am-8pm |
+| `/say [bob] Time for dinner` | Speak a message to Bob via TTS |
 
 Duration formats: `15`, `15m`, `1h`, `1h30m`.
+
+The user argument can be omitted when there is one configured user, or when exactly one configured user is active.
 
 Using `/give` outside allowed hours automatically creates a temporary override so the child can log in.
 

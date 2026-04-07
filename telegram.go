@@ -86,14 +86,9 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 }
 
 func (b *Bot) handleGive(chatID int64, args []string) {
-	if len(args) != 2 {
-		b.send(chatID, "Usage: /give {user} {duration}")
-		return
-	}
-	user, durStr := args[0], args[1]
-
-	if !b.cfg.isValidUser(user) {
-		b.send(chatID, fmt.Sprintf("Unknown user: %s", user))
+	user, durStr, err := b.parseUserDuration(args)
+	if err != nil {
+		b.send(chatID, fmt.Sprintf("Usage: /give [user] {duration} (%v)", err))
 		return
 	}
 
@@ -113,21 +108,15 @@ func (b *Bot) handleGive(chatID int64, args []string) {
 }
 
 func (b *Bot) handleLock(chatID int64, args []string) {
-	if len(args) == 0 || len(args) > 2 {
-		b.send(chatID, "Usage: /lock {user} [duration]")
-		return
-	}
-	user := args[0]
-
-	if !b.cfg.isValidUser(user) {
-		b.send(chatID, fmt.Sprintf("Unknown user: %s", user))
+	user, durStr, err := b.parseUserOptionalDuration(args)
+	if err != nil {
+		b.send(chatID, fmt.Sprintf("Usage: /lock [user] [duration] (%v)", err))
 		return
 	}
 
 	minutes := 0
-	if len(args) == 2 {
-		var err error
-		minutes, err = parseDurationMinutes(args[1])
+	if durStr != "" {
+		minutes, err = parseDurationMinutes(durStr)
 		if err != nil {
 			b.send(chatID, fmt.Sprintf("Invalid duration: %v", err))
 			return
@@ -151,14 +140,9 @@ func (b *Bot) handleLock(chatID int64, args []string) {
 }
 
 func (b *Bot) handleStatus(chatID int64, args []string) {
-	if len(args) != 1 {
-		b.send(chatID, "Usage: /status {user}")
-		return
-	}
-	user := args[0]
-
-	if !b.cfg.isValidUser(user) {
-		b.send(chatID, fmt.Sprintf("Unknown user: %s", user))
+	user, err := b.parseOptionalUser(args)
+	if err != nil {
+		b.send(chatID, fmt.Sprintf("Usage: /status [user] (%v)", err))
 		return
 	}
 
@@ -184,26 +168,21 @@ func (b *Bot) handleStatus(chatID int64, args []string) {
 }
 
 func (b *Bot) handleHours(chatID int64, args []string) {
-	if len(args) < 1 || len(args) > 2 {
-		b.send(chatID, "Usage: /hours {user} [start-end]")
-		return
-	}
-	user := args[0]
-
-	if !b.cfg.isValidUser(user) {
-		b.send(chatID, fmt.Sprintf("Unknown user: %s", user))
+	user, hours, err := b.parseUserOptionalHours(args)
+	if err != nil {
+		b.send(chatID, fmt.Sprintf("Usage: /hours [user] [start-end] (%v)", err))
 		return
 	}
 
 	u := b.cfg.getUser(user)
 
-	if len(args) == 1 {
+	if hours == "" {
 		b.send(chatID, fmt.Sprintf("Allowed hours for %s: %dam - %dpm",
 			capitalize(user), u.AllowedHours.Start, u.AllowedHours.End%12))
 		return
 	}
 
-	start, end, err := parseHoursRange(args[1])
+	start, end, err := parseHoursRange(hours)
 	if err != nil {
 		b.send(chatID, fmt.Sprintf("Invalid hours: %v", err))
 		return
@@ -220,21 +199,127 @@ func (b *Bot) handleHours(chatID int64, args []string) {
 }
 
 func (b *Bot) handleSay(chatID int64, args []string) {
-	if len(args) < 2 {
-		b.send(chatID, "Usage: /say {user} {message}")
+	user, msg, err := b.parseUserMessage(args)
+	if err != nil {
+		b.send(chatID, fmt.Sprintf("Usage: /say [user] {message} (%v)", err))
 		return
 	}
-	user := args[0]
-
-	if !b.cfg.isValidUser(user) {
-		b.send(chatID, fmt.Sprintf("Unknown user: %s", user))
-		return
-	}
-
-	msg := strings.Join(args[1:], " ")
 	sendTTS(user, msg)
 	sendNotification(user, msg)
 	b.send(chatID, fmt.Sprintf("Sent to %s: %q", capitalize(user), msg))
+}
+
+func (b *Bot) parseOptionalUser(args []string) (string, error) {
+	switch len(args) {
+	case 0:
+		return b.defaultUser()
+	case 1:
+		return b.requireValidUser(args[0])
+	default:
+		return "", fmt.Errorf("too many arguments")
+	}
+}
+
+func (b *Bot) parseUserDuration(args []string) (string, string, error) {
+	switch len(args) {
+	case 1:
+		if b.cfg.isValidUser(args[0]) {
+			return "", "", fmt.Errorf("missing duration")
+		}
+		user, err := b.defaultUser()
+		return user, args[0], err
+	case 2:
+		user, err := b.requireValidUser(args[0])
+		return user, args[1], err
+	default:
+		return "", "", fmt.Errorf("expected duration, or user and duration")
+	}
+}
+
+func (b *Bot) parseUserOptionalDuration(args []string) (string, string, error) {
+	switch len(args) {
+	case 0:
+		user, err := b.defaultUser()
+		return user, "", err
+	case 1:
+		if b.cfg.isValidUser(args[0]) {
+			return args[0], "", nil
+		}
+		user, err := b.defaultUser()
+		return user, args[0], err
+	case 2:
+		user, err := b.requireValidUser(args[0])
+		return user, args[1], err
+	default:
+		return "", "", fmt.Errorf("too many arguments")
+	}
+}
+
+func (b *Bot) parseUserOptionalHours(args []string) (string, string, error) {
+	switch len(args) {
+	case 0:
+		user, err := b.defaultUser()
+		return user, "", err
+	case 1:
+		if b.cfg.isValidUser(args[0]) {
+			return args[0], "", nil
+		}
+		if _, _, err := parseHoursRange(args[0]); err != nil {
+			return "", "", fmt.Errorf("unknown user: %s", args[0])
+		}
+		user, err := b.defaultUser()
+		return user, args[0], err
+	case 2:
+		user, err := b.requireValidUser(args[0])
+		return user, args[1], err
+	default:
+		return "", "", fmt.Errorf("too many arguments")
+	}
+}
+
+func (b *Bot) parseUserMessage(args []string) (string, string, error) {
+	if len(args) == 0 {
+		return "", "", fmt.Errorf("missing message")
+	}
+	if b.cfg.isValidUser(args[0]) {
+		if len(args) == 1 {
+			return "", "", fmt.Errorf("missing message")
+		}
+		return args[0], strings.Join(args[1:], " "), nil
+	}
+	user, err := b.defaultUser()
+	if err != nil {
+		return "", "", err
+	}
+	return user, strings.Join(args, " "), nil
+}
+
+func (b *Bot) requireValidUser(name string) (string, error) {
+	if !b.cfg.isValidUser(name) {
+		return "", fmt.Errorf("unknown user: %s", name)
+	}
+	return name, nil
+}
+
+func (b *Bot) defaultUser() (string, error) {
+	if len(b.cfg.Users) == 1 {
+		return b.cfg.Users[0].Name, nil
+	}
+
+	var active []string
+	for _, u := range b.cfg.Users {
+		if getUserSessionStatusFunc(u.Name) == "active" {
+			active = append(active, u.Name)
+		}
+	}
+	switch len(active) {
+	case 1:
+		return active[0], nil
+	case 0:
+		return "", fmt.Errorf("no active configured user; specify a user")
+	default:
+		return "", fmt.Errorf("multiple active configured users (%s); specify a user", strings.Join(active, ", "))
+	}
 }
 
 func parseHoursRange(s string) (int, int, error) {
