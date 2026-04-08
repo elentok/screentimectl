@@ -8,6 +8,7 @@
 - Added SSH-friendly CLI equivalents for Telegram admin actions: `give`, `lock`, `unlock`, `status [user]`, `hours`, and `say` now share the same parsing and default-user resolution.
 - Added `unlock [user] {duration}` / `/unlock [user] {duration}` to set remaining time and allow login. Positive `lock [user] [duration]` still works as a compatibility alias.
 - `setup` now installs all runtime apt dependencies, including notification and TTS packages.
+- Added configurable `tts.voice` and `tts.fallback_voices`; the default voice is `gmw/en-US` with `gmw/en-US-nyc` and `gmw/en` fallbacks.
 
 ## v0.3.0
 

@@ -49,6 +49,10 @@ server:
 notifications:
   thresholds: [30, 15, 5, 1]  # minutes remaining
 
+tts:
+  voice: "gmw/en-US"
+  fallback_voices: ["gmw/en-US-nyc", "gmw/en"]
+
 users:
   - name: "bob"
     daily_limit_minutes: 300   # 5 hours

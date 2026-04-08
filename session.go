@@ -114,7 +114,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 			log.Printf("session: %s time expired, locking", u.Name)
 			msg := "Your screen time is up!"
 			sendNotificationFunc(u.Name, msg)
-			sendTTSFunc(u.Name, msg)
+			sendTTSFunc(u.Name, msg, m.cfg.TTSVoices())
 			lockOutUserFunc(u.Name, sessions)
 			m.store.SetExpiryHandled(u.Name, true)
 			m.logTransition(u.Name, "time-expired")
@@ -132,7 +132,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 			m.store.MarkNotified(u.Name, threshold)
 			msg := fmt.Sprintf("You have %d minutes of screen time remaining", threshold)
 			sendNotificationFunc(u.Name, msg)
-			sendTTSFunc(u.Name, msg)
+			sendTTSFunc(u.Name, msg, m.cfg.TTSVoices())
 			m.sendAll(fmt.Sprintf("%s has %s remaining", capitalize(u.Name), ut.RemainingStr()))
 		}
 	}
@@ -193,7 +193,7 @@ func (m *SessionManager) AddTime(user string, minutes int) (UserTime, error) {
 	ut := m.store.GetUserTime(user, u.DailyLimitMinutes*60)
 	msg := fmt.Sprintf("You got %d more minutes! You now have %s remaining", minutes, ut.RemainingStr())
 	sendNotificationFunc(user, msg)
-	sendTTSFunc(user, msg)
+	sendTTSFunc(user, msg, m.cfg.TTSVoices())
 	return ut, nil
 }
 
@@ -345,17 +345,35 @@ func sendNotification(username string, msg string) {
 	}
 }
 
-func sendTTS(username string, msg string) {
+const defaultTTSVoice = "gmw/en-US"
+
+var defaultTTSFallbackVoices = []string{"gmw/en-US-nyc", "gmw/en"}
+
+func sendTTS(username string, msg string, voices []string) {
 	uid := resolveUID(username)
 	if uid == "" {
 		return
 	}
 	xdg := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
-	cmd := exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "espeak-ng", msg)
-	cmd.Env = append(os.Environ(), xdg)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		log.Printf("session: espeak-ng for %s: %v\ncmd: %s\noutput: %s", username, err, cmd.Args, out)
+	if len(voices) == 0 {
+		voices = []string{defaultTTSVoice}
 	}
+
+	for i, voice := range voices {
+		cmd := newTTSCommand(username, voice, msg)
+		cmd.Env = append(os.Environ(), xdg)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("session: espeak-ng voice %q for %s: %v\ncmd: %s\noutput: %s", voice, username, err, cmd.Args, out)
+			if i < len(voices)-1 {
+				continue
+			}
+		}
+		return
+	}
+}
+
+func newTTSCommand(username, voice, msg string) *exec.Cmd {
+	return exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "espeak-ng", "-v", voice, msg)
 }
 
 func resolveUID(username string) string {

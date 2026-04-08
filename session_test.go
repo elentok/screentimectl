@@ -33,7 +33,7 @@ func TestSessionManagerPollUserHandlesExpiryOnce(t *testing.T) {
 		return nil
 	}
 	sendNotificationFunc = func(string, string) { notifications++ }
-	sendTTSFunc = func(string, string) { tts++ }
+	sendTTSFunc = func(string, string, []string) { tts++ }
 	isWithinAllowedHoursFunc = func(AllowedHours) bool { return true }
 
 	logDir := t.TempDir()
@@ -117,6 +117,14 @@ func TestAccountCommandsUseChageExpiry(t *testing.T) {
 	}
 	if err := unlockAccount("bob"); err != nil {
 		t.Fatalf("unlockAccount: %v", err)
+	}
+}
+
+func TestTTSCommandUsesConfiguredVoice(t *testing.T) {
+	cmd := newTTSCommand("bob", "gmw/en-US", "hello")
+	want := []string{"sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", "bob", "espeak-ng", "-v", "gmw/en-US", "hello"}
+	if got := cmd.Args; !reflect.DeepEqual(got, want) {
+		t.Fatalf("tts cmd = %v, want %v", got, want)
 	}
 }
 

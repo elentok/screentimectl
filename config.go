@@ -15,6 +15,7 @@ type Config struct {
 	Server        ServerConfig       `yaml:"server"`
 	Users         []UserConfig       `yaml:"users"`
 	Notifications NotificationConfig `yaml:"notifications"`
+	TTS           TTSConfig          `yaml:"tts"`
 }
 
 type TelegramConfig struct {
@@ -39,6 +40,11 @@ type AllowedHours struct {
 
 type NotificationConfig struct {
 	Thresholds []int `yaml:"thresholds"`
+}
+
+type TTSConfig struct {
+	Voice          string   `yaml:"voice"`
+	FallbackVoices []string `yaml:"fallback_voices"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -75,8 +81,33 @@ func loadConfig(path string) (*Config, error) {
 	if len(cfg.Notifications.Thresholds) == 0 {
 		cfg.Notifications.Thresholds = []int{30, 15, 5, 1}
 	}
+	if cfg.TTS.Voice == "" {
+		cfg.TTS.Voice = defaultTTSVoice
+	}
+	if len(cfg.TTS.FallbackVoices) == 0 {
+		cfg.TTS.FallbackVoices = append([]string(nil), defaultTTSFallbackVoices...)
+	}
 
 	return &cfg, nil
+}
+
+func (c *Config) TTSVoices() []string {
+	var voices []string
+	seen := make(map[string]bool)
+	if c.TTS.Voice != "" {
+		voices = append(voices, c.TTS.Voice)
+		seen[c.TTS.Voice] = true
+	}
+	for _, voice := range c.TTS.FallbackVoices {
+		if voice != "" && !seen[voice] {
+			voices = append(voices, voice)
+			seen[voice] = true
+		}
+	}
+	if len(voices) == 0 {
+		return []string{defaultTTSVoice}
+	}
+	return voices
 }
 
 func (c *Config) isAllowedChat(chatID int64) bool {
