@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	serviceUser            = "screentimectl"
-	configDir              = "/etc/screentimectl"
-	sudoersPath            = "/etc/sudoers.d/screentimectl"
-	servicePath            = "/etc/systemd/system/screentimectl.service"
-	trayPath               = "/usr/local/bin/screentimectl-tray"
-	pamService             = "/etc/pam.d/gdm-password"
-	pamRule                = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
-	trayDependencyPackages = "gnome-shell-extension-appindicator python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
+	serviceUser           = "screentimectl"
+	configDir             = "/etc/screentimectl"
+	sudoersPath           = "/etc/sudoers.d/screentimectl"
+	servicePath           = "/etc/systemd/system/screentimectl.service"
+	trayPath              = "/usr/local/bin/screentimectl-tray"
+	pamService            = "/etc/pam.d/gdm-password"
+	pamRule               = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
+	aptDependencyPackages = "sudo libnotify-bin espeak-ng gnome-shell-extension-appindicator python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
 )
 
 func runSetup() error {
@@ -35,7 +35,7 @@ func runSetup() error {
 		{"create data directory", createDataDir},
 		{"install sudoers rule", installSudoers},
 		{"install PAM rule", installPAMRule},
-		{"install tray dependencies", installTrayDependencies},
+		{"install apt dependencies", installAptDependencies},
 		{"install tray indicator", installTrayIndicator},
 		{"install systemd service", installService},
 		{"reload systemd", reloadSystemd},
@@ -112,7 +112,7 @@ func installPAMRule() error {
 	return os.WriteFile(pamService, []byte(strings.Join(result, "\n")), 0644)
 }
 
-func installTrayDependencies() error {
+func installAptDependencies() error {
 	update := exec.Command("apt-get", "update")
 	update.Stdout = os.Stdout
 	update.Stderr = os.Stderr
@@ -120,7 +120,7 @@ func installTrayDependencies() error {
 		return err
 	}
 	cmd := exec.Command("apt-get", "install", "-y", "--no-install-recommends")
-	cmd.Args = append(cmd.Args, strings.Fields(trayDependencyPackages)...)
+	cmd.Args = append(cmd.Args, strings.Fields(aptDependencyPackages)...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()

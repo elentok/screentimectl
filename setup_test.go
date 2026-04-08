@@ -26,10 +26,10 @@ func TestTrayScriptUsesCompactStatus(t *testing.T) {
 	}
 }
 
-func TestTrayDependenciesIncludePythonGI(t *testing.T) {
-	for _, pkg := range []string{"python3-gi", "gir1.2-gtk-3.0", "gir1.2-ayatanaappindicator3-0.1"} {
-		if !strings.Contains(trayDependencyPackages, pkg) {
-			t.Fatalf("trayDependencyPackages = %q, want %s", trayDependencyPackages, pkg)
+func TestAptDependenciesIncludeRequiredRuntimePackages(t *testing.T) {
+	for _, pkg := range []string{"sudo", "libnotify-bin", "espeak-ng", "gnome-shell-extension-appindicator", "python3-gi", "gir1.2-gtk-3.0", "gir1.2-ayatanaappindicator3-0.1"} {
+		if !strings.Contains(aptDependencyPackages, pkg) {
+			t.Fatalf("aptDependencyPackages = %q, want %s", aptDependencyPackages, pkg)
 		}
 	}
 }

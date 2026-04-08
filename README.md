@@ -6,9 +6,7 @@ A daemon that lets parents remotely control screen time on Linux machines via Te
 
 - Ubuntu (systemd + systemd-logind)
 - A Telegram bot token (create one via [@BotFather](https://t.me/BotFather))
-- `espeak-ng` for TTS alerts
-- `libnotify-bin` for desktop notifications (`notify-send`)
-- Optional GNOME tray indicator dependencies installed by `setup`: `gnome-shell-extension-appindicator`, `python3-gi`, `gir1.2-gtk-3.0`, `gir1.2-ayatanaappindicator3-0.1`
+- Runtime apt dependencies are installed by `setup`: `sudo`, `libnotify-bin`, `espeak-ng`, `gnome-shell-extension-appindicator`, `python3-gi`, `gir1.2-gtk-3.0`, `gir1.2-ayatanaappindicator3-0.1`
 
 ## Install
 
