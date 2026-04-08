@@ -113,17 +113,23 @@ func installPAMRule() error {
 }
 
 func installAptDependencies() error {
-	update := exec.Command("apt-get", "update")
-	update.Stdout = os.Stdout
-	update.Stderr = os.Stderr
-	if err := update.Run(); err != nil {
+	if err := runSetupCommand("apt-get", "update"); err != nil {
 		return err
 	}
-	cmd := exec.Command("apt-get", "install", "-y", "--no-install-recommends")
-	cmd.Args = append(cmd.Args, strings.Fields(aptDependencyPackages)...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	args := append([]string{"install", "-y", "--no-install-recommends"}, strings.Fields(aptDependencyPackages)...)
+	return runSetupCommand("apt-get", args...)
+}
+
+func runSetupCommand(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%s: %w\n%s", strings.Join(cmd.Args, " "), err, strings.TrimSpace(string(out)))
+	}
+	if len(out) > 0 {
+		fmt.Print(string(out))
+	}
+	return nil
 }
 
 func installTrayIndicator() error {

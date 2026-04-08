@@ -15,12 +15,10 @@ assert_file() {
 
 echo "=== screentimectl setup ==="
 
-output=$(screentimectl setup 2>&1)
-rc=$?
-
-if [[ $rc -eq 0 ]]; then
+if output=$(screentimectl setup 2>&1); then
     pass "setup exits 0"
 else
+    rc=$?
     fail "setup exits 0 (got $rc)"
     echo "$output"
 fi
