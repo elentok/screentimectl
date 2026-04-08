@@ -139,7 +139,7 @@ func (s *UsageStore) SetRemainingTime(user string, seconds int, limitSeconds int
 	if u.UsedSeconds < 0 {
 		u.UsedSeconds = 0
 	}
-	u.ExpiryHandled = seconds <= 0
+	u.ExpiryHandled = seconds == 0
 }
 
 func (s *UsageStore) MarkNotified(user string, threshold int) {

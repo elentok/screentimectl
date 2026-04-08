@@ -114,6 +114,21 @@ func TestUsageStore_ExpiryHandledResetsWhenTimeIsAdded(t *testing.T) {
 	}
 }
 
+func TestUsageStore_ExpiryHandledResetsWhenPositiveTimeIsSet(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.json")
+	store, err := NewUsageStore(path)
+	if err != nil {
+		t.Fatalf("NewUsageStore: %v", err)
+	}
+
+	store.SetExpiryHandled("bob", true)
+	store.SetRemainingTime("bob", 300, 3600)
+
+	if store.IsExpiryHandled("bob") {
+		t.Error("expected expiry handled flag to reset when positive time is set")
+	}
+}
+
 func TestUsageStore_Persistence(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "usage.json")
 	store, err := NewUsageStore(path)

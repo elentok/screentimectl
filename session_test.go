@@ -119,3 +119,125 @@ func TestAccountCommandsUseChageExpiry(t *testing.T) {
 		t.Fatalf("unlockAccount: %v", err)
 	}
 }
+
+func TestSessionManagerSetTimeUnlocksPositiveTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.json")
+	store, err := NewUsageStore(path)
+	if err != nil {
+		t.Fatalf("NewUsageStore: %v", err)
+	}
+
+	cfg := &Config{
+		Users: []UserConfig{{
+			Name:              "bob",
+			DailyLimitMinutes: 60,
+			AllowedHours:      AllowedHours{Start: 8, End: 18},
+		}},
+	}
+
+	restore := stubSessionFuncs()
+	defer restore()
+
+	var unlocks int
+	unlockAccountFunc = func(string) error {
+		unlocks++
+		return nil
+	}
+	isWithinAllowedHoursFunc = func(AllowedHours) bool { return false }
+
+	mgr := NewSessionManager(cfg, store, nil, nil)
+	if _, err := mgr.SetTime("bob", 15); err != nil {
+		t.Fatalf("SetTime: %v", err)
+	}
+
+	if unlocks != 1 {
+		t.Fatalf("unlocks = %d, want 1", unlocks)
+	}
+	if !store.HasOverride("bob") {
+		t.Fatal("expected SetTime to create override outside allowed hours")
+	}
+	if store.IsExpiryHandled("bob") {
+		t.Fatal("expected positive SetTime to clear expiry handled")
+	}
+}
+
+func TestAdminCommandsUnlockSetsPositiveTime(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.json")
+	store, err := NewUsageStore(path)
+	if err != nil {
+		t.Fatalf("NewUsageStore: %v", err)
+	}
+
+	cfg := &Config{
+		Users: []UserConfig{{
+			Name:              "bob",
+			DailyLimitMinutes: 60,
+			AllowedHours:      AllowedHours{Start: 8, End: 18},
+		}},
+	}
+
+	restore := stubSessionFuncs()
+	defer restore()
+
+	var unlocks int
+	unlockAccountFunc = func(string) error {
+		unlocks++
+		return nil
+	}
+	isWithinAllowedHoursFunc = func(AllowedHours) bool { return true }
+
+	mgr := NewSessionManager(cfg, store, nil, nil)
+	text, err := NewAdminCommands(cfg, mgr).Unlock([]string{"bob", "15m"})
+	if err != nil {
+		t.Fatalf("Unlock: %v", err)
+	}
+	if text != "Bob now has 15m remaining" {
+		t.Fatalf("Unlock text = %q, want %q", text, "Bob now has 15m remaining")
+	}
+	if unlocks != 1 {
+		t.Fatalf("unlocks = %d, want 1", unlocks)
+	}
+
+	ut := store.GetUserTime("bob", 60*60)
+	if ut.RemainingSeconds != 15*60 {
+		t.Fatalf("remaining = %d, want %d", ut.RemainingSeconds, 15*60)
+	}
+}
+
+func TestAdminCommandsLockPositiveDurationCompatibilityAlias(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "usage.json")
+	store, err := NewUsageStore(path)
+	if err != nil {
+		t.Fatalf("NewUsageStore: %v", err)
+	}
+
+	cfg := &Config{
+		Users: []UserConfig{{
+			Name:              "bob",
+			DailyLimitMinutes: 60,
+			AllowedHours:      AllowedHours{Start: 8, End: 18},
+		}},
+	}
+
+	restore := stubSessionFuncs()
+	defer restore()
+
+	var unlocks int
+	unlockAccountFunc = func(string) error {
+		unlocks++
+		return nil
+	}
+	isWithinAllowedHoursFunc = func(AllowedHours) bool { return true }
+
+	mgr := NewSessionManager(cfg, store, nil, nil)
+	text, err := NewAdminCommands(cfg, mgr).Lock([]string{"bob", "15m"})
+	if err != nil {
+		t.Fatalf("Lock positive duration: %v", err)
+	}
+	if text != "Bob now has 15m remaining" {
+		t.Fatalf("Lock text = %q, want %q", text, "Bob now has 15m remaining")
+	}
+	if unlocks != 1 {
+		t.Fatalf("unlocks = %d, want 1", unlocks)
+	}
+}

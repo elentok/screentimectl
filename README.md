@@ -66,7 +66,7 @@ users:
 | `/give [bob] 30m` | Add 30 minutes to Bob's time |
 | `/give [bob] 1h30m` | Add 1.5 hours |
 | `/lock [bob]` | Lock Bob's screen and account immediately |
-| `/lock [bob] 15m` | Set Bob's remaining time to 15 minutes |
+| `/unlock [bob] 15m` | Set Bob's remaining time to 15 minutes and allow login |
 | `/status [bob]` | Show remaining time, used time, allowed hours, and activity timeline |
 | `/hours [bob]` | Show Bob's allowed hours |
 | `/hours [bob] 8-20` | Set allowed hours to 8am-8pm |
@@ -75,6 +75,8 @@ users:
 Duration formats: `15`, `15m`, `1h`, `1h30m`.
 
 The user argument can be omitted when there is one configured user, or when exactly one configured user is active.
+
+`/lock [bob] 15m` still works as a compatibility alias for `/unlock [bob] 15m`, but `/unlock` is preferred.
 
 Using `/give` outside allowed hours automatically creates a temporary override so the child can log in.
 
@@ -98,14 +100,14 @@ screentimectl doctor       # check configuration and dependencies
 screentimectl logs         # tail the service logs
 screentimectl give bob 30m # add 30 minutes for bob
 screentimectl lock bob     # lock bob's screen and account immediately
-screentimectl lock bob 15m # set bob's remaining time to 15 minutes
+screentimectl unlock bob 15m  # set bob's remaining time to 15 minutes and allow login
 screentimectl status bob   # show bob's remaining time and activity timeline
 screentimectl hours bob    # show allowed hours for bob
 screentimectl hours bob 8-20  # set allowed hours
 screentimectl say bob "Time for dinner"  # send a desktop notification and TTS message
 ```
 
-For SSH/admin use, the user argument can be omitted for `give`, `lock`, `status`, `hours`, and `say` when there is one configured user, or when exactly one configured user is active.
+For SSH/admin use, the user argument can be omitted for `give`, `lock`, `unlock`, `status`, `hours`, and `say` when there is one configured user, or when exactly one configured user is active.
 
 ## HTTP API
 

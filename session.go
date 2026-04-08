@@ -204,6 +204,14 @@ func (m *SessionManager) SetTime(user string, minutes int) (UserTime, error) {
 		return UserTime{}, fmt.Errorf("unknown user: %s", user)
 	}
 	m.store.SetRemainingTime(user, minutes*60, u.DailyLimitMinutes*60)
+	if minutes > 0 {
+		if !isWithinAllowedHoursFunc(u.AllowedHours) {
+			m.store.SetOverride(user, time.Now().Add(time.Duration(minutes)*time.Minute))
+		}
+		if err := unlockAccountFunc(user); err != nil {
+			log.Printf("session: unlock %s after SetTime: %v", user, err)
+		}
+	}
 	if err := m.store.Save(); err != nil {
 		log.Printf("session: save after SetTime: %v", err)
 	}

@@ -58,6 +58,22 @@ func (c *AdminCommands) Lock(args []string) (string, error) {
 	return fmt.Sprintf("%s now has %s remaining", capitalize(user), ut.RemainingStr()), nil
 }
 
+func (c *AdminCommands) Unlock(args []string) (string, error) {
+	user, durStr, err := c.parseUserDuration(args)
+	if err != nil {
+		return "", fmt.Errorf("usage: unlock [user] {duration}: %w", err)
+	}
+	minutes, err := parseDurationMinutes(durStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid duration: %w", err)
+	}
+	ut, err := c.mgr.SetTime(user, minutes)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s now has %s remaining", capitalize(user), ut.RemainingStr()), nil
+}
+
 func (c *AdminCommands) Status(args []string) (string, error) {
 	user, err := c.parseOptionalUser(args)
 	if err != nil {

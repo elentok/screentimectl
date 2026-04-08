@@ -41,6 +41,8 @@ func main() {
 		runAdminCommand("give", os.Args[2:])
 	case "lock":
 		runAdminCommand("lock", os.Args[2:])
+	case "unlock":
+		runAdminCommand("unlock", os.Args[2:])
 	case "hours":
 		runAdminCommand("hours", os.Args[2:])
 	case "say":
@@ -63,7 +65,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  doctor       Check system configuration")
 	fmt.Fprintln(os.Stderr, "  logs         Follow service logs")
 	fmt.Fprintln(os.Stderr, "  give         Add time for a user")
-	fmt.Fprintln(os.Stderr, "  lock         Lock a user's screen and account, or set remaining time")
+	fmt.Fprintln(os.Stderr, "  lock         Lock a user's screen and account")
+	fmt.Fprintln(os.Stderr, "  unlock       Set remaining time and allow login")
 	fmt.Fprintln(os.Stderr, "  status       Show remaining time for the current or target user")
 	fmt.Fprintln(os.Stderr, "  hours        View or set allowed hours for a user")
 	fmt.Fprintln(os.Stderr, "  say          Send a spoken and desktop message to a user")
@@ -303,6 +306,8 @@ func runAdminCommand(command string, args []string) {
 		text, err = commands.Give(args)
 	case "lock":
 		text, err = commands.Lock(args)
+	case "unlock":
+		text, err = commands.Unlock(args)
 	case "hours":
 		text, err = commands.Hours(args)
 	case "say":

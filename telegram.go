@@ -74,6 +74,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleGive(chatID, args)
 	case "lock":
 		b.handleLock(chatID, args)
+	case "unlock":
+		b.handleUnlock(chatID, args)
 	case "status":
 		b.handleStatus(chatID, args)
 	case "hours":
@@ -81,7 +83,7 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "say":
 		b.handleSay(chatID, args)
 	default:
-		b.send(chatID, "Unknown command. Use /give, /lock, /status, /hours, or /say.")
+		b.send(chatID, "Unknown command. Use /give, /lock, /unlock, /status, /hours, or /say.")
 	}
 }
 
@@ -96,6 +98,15 @@ func (b *Bot) handleGive(chatID int64, args []string) {
 
 func (b *Bot) handleLock(chatID int64, args []string) {
 	text, err := NewAdminCommands(b.cfg, b.mgr).Lock(args)
+	if err != nil {
+		b.send(chatID, fmt.Sprintf("Failed to apply command: %v", err))
+		return
+	}
+	b.send(chatID, text)
+}
+
+func (b *Bot) handleUnlock(chatID int64, args []string) {
+	text, err := NewAdminCommands(b.cfg, b.mgr).Unlock(args)
 	if err != nil {
 		b.send(chatID, fmt.Sprintf("Failed to apply command: %v", err))
 		return
