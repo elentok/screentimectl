@@ -242,6 +242,36 @@ func (m *SessionManager) logTransition(user, status string) {
 	}
 }
 
+// startupUnlock unlocks user accounts that are currently eligible to log in.
+// This recovers from the case where the computer was shut down while a user
+// was locked (e.g. ran out of time), leaving the OS-level account lock in
+// place across reboots.
+func (m *SessionManager) startupUnlock() {
+	for _, u := range m.cfg.Users {
+		if !m.canUserLogin(u) {
+			continue
+		}
+		log.Printf("session: unlock %s on startup", u.Name)
+		if err := unlockAccountFunc(u.Name); err != nil {
+			log.Printf("session: startup unlock %s: %v", u.Name, err)
+		}
+	}
+}
+
+// canUserLogin returns true if the user is currently allowed to log in:
+// they have an active override, or they are within allowed hours with time remaining.
+// This mirrors the logic in runCheckLogin (PAM gate) to prevent drift.
+func (m *SessionManager) canUserLogin(u UserConfig) bool {
+	if m.store.HasOverride(u.Name) {
+		return true
+	}
+	if !isWithinAllowedHoursFunc(u.AllowedHours) {
+		return false
+	}
+	ut := m.store.GetUserTime(u.Name, u.DailyLimitMinutes*60)
+	return ut.RemainingSeconds > 0
+}
+
 // LogShutdown writes a shutdown entry for all configured users.
 func (m *SessionManager) LogShutdown() {
 	if m.actLog == nil {

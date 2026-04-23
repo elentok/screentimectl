@@ -92,6 +92,7 @@ func runDaemon() {
 
 	actLog := NewActivityLog(logDir)
 	mgr := NewSessionManager(cfg, store, nil, actLog)
+	mgr.startupUnlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

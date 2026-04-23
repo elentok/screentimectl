@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
 
 func TestSessionManagerPollUserHandlesExpiryOnce(t *testing.T) {
@@ -209,6 +210,62 @@ func TestAdminCommandsUnlockSetsPositiveTime(t *testing.T) {
 	ut := store.GetUserTime("bob", 60*60)
 	if ut.RemainingSeconds != 15*60 {
 		t.Fatalf("remaining = %d, want %d", ut.RemainingSeconds, 15*60)
+	}
+}
+
+func TestStartupUnlock(t *testing.T) {
+	cases := []struct {
+		name          string
+		withinHours   bool
+		usedSeconds   int
+		limitSeconds  int
+		hasOverride   bool
+		wantUnlocks   int
+	}{
+		{name: "within hours with time remaining", withinHours: true, usedSeconds: 0, limitSeconds: 3600, wantUnlocks: 1},
+		{name: "outside hours no override", withinHours: false, usedSeconds: 0, limitSeconds: 3600, wantUnlocks: 0},
+		{name: "within hours no time remaining", withinHours: true, usedSeconds: 3600, limitSeconds: 3600, wantUnlocks: 0},
+		{name: "override active regardless of hours or time", withinHours: false, usedSeconds: 3600, limitSeconds: 3600, hasOverride: true, wantUnlocks: 1},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "usage.json")
+			store, err := NewUsageStore(path)
+			if err != nil {
+				t.Fatalf("NewUsageStore: %v", err)
+			}
+
+			cfg := &Config{
+				Users: []UserConfig{{
+					Name:              "bob",
+					DailyLimitMinutes: tc.limitSeconds / 60,
+					AllowedHours:      AllowedHours{Start: 8, End: 18},
+				}},
+			}
+
+			restore := stubSessionFuncs()
+			defer restore()
+
+			store.AddUsedTime("bob", tc.usedSeconds)
+			if tc.hasOverride {
+				store.SetOverride("bob", time.Now().Add(time.Hour))
+			}
+
+			var unlocks int
+			unlockAccountFunc = func(string) error {
+				unlocks++
+				return nil
+			}
+			isWithinAllowedHoursFunc = func(AllowedHours) bool { return tc.withinHours }
+
+			mgr := NewSessionManager(cfg, store, nil, nil)
+			mgr.startupUnlock()
+
+			if unlocks != tc.wantUnlocks {
+				t.Fatalf("unlocks = %d, want %d", unlocks, tc.wantUnlocks)
+			}
+		})
 	}
 }
 
