@@ -12,8 +12,7 @@ notifications:
   thresholds: [30, 15, 5, 1]
 
 tts:
-  voice: "gmw/en-US"
-  fallback_voices: ["gmw/en-US-nyc", "gmw/en"]
+  model: "en_US-lessac-medium"
 
 users:
   - name: "user1"

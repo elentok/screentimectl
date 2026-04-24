@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -24,9 +25,19 @@ func runDoctor() {
 		return err
 	})
 
-	check("espeak-ng binary exists", func() error {
-		_, err := exec.LookPath("espeak-ng")
-		return err
+	check("piper binary exists", func() error {
+		if _, err := os.Stat(piperBin); err != nil {
+			return fmt.Errorf("%s not found (run screentimectl setup)", piperBin)
+		}
+		return nil
+	})
+
+	check("piper voice model exists", func() error {
+		modelPath := filepath.Join(piperVoicesDir, defaultTTSModel+".onnx")
+		if _, err := os.Stat(modelPath); err != nil {
+			return fmt.Errorf("%s not found (run screentimectl setup)", modelPath)
+		}
+		return nil
 	})
 
 	check("python3 binary exists", func() error {

@@ -3,11 +3,10 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 )
 
-func TestLoadConfigDefaultsTTSVoices(t *testing.T) {
+func TestLoadConfigDefaultsTTSModel(t *testing.T) {
 	cfg := loadTestConfig(t, `
 machine_name: "test"
 telegram:
@@ -16,28 +15,24 @@ telegram:
 users:
   - name: "bob"
 `)
-
-	want := []string{"gmw/en-US", "gmw/en-US-nyc", "gmw/en"}
-	if got := cfg.TTSVoices(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("TTSVoices = %v, want %v", got, want)
+	if got, want := cfg.TTSModel(), defaultTTSModel; got != want {
+		t.Fatalf("TTSModel = %q, want %q", got, want)
 	}
 }
 
-func TestLoadConfigCustomTTSVoiceKeepsDefaultFallbacks(t *testing.T) {
+func TestLoadConfigCustomTTSModel(t *testing.T) {
 	cfg := loadTestConfig(t, `
 machine_name: "test"
 telegram:
   bot_token: "token"
   allowed_chat_ids: [123]
 tts:
-  voice: "gmw/en"
+  model: "en_US-ryan-medium"
 users:
   - name: "bob"
 `)
-
-	want := []string{"gmw/en", "gmw/en-US-nyc"}
-	if got := cfg.TTSVoices(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("TTSVoices = %v, want %v", got, want)
+	if got, want := cfg.TTSModel(), "en_US-ryan-medium"; got != want {
+		t.Fatalf("TTSModel = %q, want %q", got, want)
 	}
 }
 

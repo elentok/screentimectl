@@ -43,8 +43,7 @@ type NotificationConfig struct {
 }
 
 type TTSConfig struct {
-	Voice          string   `yaml:"voice"`
-	FallbackVoices []string `yaml:"fallback_voices"`
+	Model string `yaml:"model"`
 }
 
 func loadConfig(path string) (*Config, error) {
@@ -81,33 +80,18 @@ func loadConfig(path string) (*Config, error) {
 	if len(cfg.Notifications.Thresholds) == 0 {
 		cfg.Notifications.Thresholds = []int{30, 15, 5, 1}
 	}
-	if cfg.TTS.Voice == "" {
-		cfg.TTS.Voice = defaultTTSVoice
-	}
-	if len(cfg.TTS.FallbackVoices) == 0 {
-		cfg.TTS.FallbackVoices = append([]string(nil), defaultTTSFallbackVoices...)
+	if cfg.TTS.Model == "" {
+		cfg.TTS.Model = defaultTTSModel
 	}
 
 	return &cfg, nil
 }
 
-func (c *Config) TTSVoices() []string {
-	var voices []string
-	seen := make(map[string]bool)
-	if c.TTS.Voice != "" {
-		voices = append(voices, c.TTS.Voice)
-		seen[c.TTS.Voice] = true
+func (c *Config) TTSModel() string {
+	if c.TTS.Model != "" {
+		return c.TTS.Model
 	}
-	for _, voice := range c.TTS.FallbackVoices {
-		if voice != "" && !seen[voice] {
-			voices = append(voices, voice)
-			seen[voice] = true
-		}
-	}
-	if len(voices) == 0 {
-		return []string{defaultTTSVoice}
-	}
-	return voices
+	return defaultTTSModel
 }
 
 func (c *Config) isAllowedChat(chatID int64) bool {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -114,7 +115,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 			log.Printf("session: %s time expired, locking", u.Name)
 			msg := "Your screen time is up!"
 			sendNotificationFunc(u.Name, msg)
-			sendTTSFunc(u.Name, msg, m.cfg.TTSVoices())
+			sendTTSFunc(u.Name, msg, m.cfg.TTSModel())
 			lockOutUserFunc(u.Name, sessions)
 			m.store.SetExpiryHandled(u.Name, true)
 			m.logTransition(u.Name, "time-expired")
@@ -132,7 +133,7 @@ func (m *SessionManager) pollUser(u UserConfig) {
 			m.store.MarkNotified(u.Name, threshold)
 			msg := fmt.Sprintf("You have %d minutes of screen time remaining", threshold)
 			sendNotificationFunc(u.Name, msg)
-			sendTTSFunc(u.Name, msg, m.cfg.TTSVoices())
+			sendTTSFunc(u.Name, msg, m.cfg.TTSModel())
 			m.sendAll(fmt.Sprintf("%s has %s remaining", capitalize(u.Name), ut.RemainingStr()))
 		}
 	}
@@ -193,7 +194,7 @@ func (m *SessionManager) AddTime(user string, minutes int) (UserTime, error) {
 	ut := m.store.GetUserTime(user, u.DailyLimitMinutes*60)
 	msg := fmt.Sprintf("You got %d more minutes! You now have %s remaining", minutes, ut.RemainingStr())
 	sendNotificationFunc(user, msg)
-	sendTTSFunc(user, msg, m.cfg.TTSVoices())
+	sendTTSFunc(user, msg, m.cfg.TTSModel())
 	return ut, nil
 }
 
@@ -375,35 +376,41 @@ func sendNotification(username string, msg string) {
 	}
 }
 
-const defaultTTSVoice = "gmw/en-US"
+const (
+	defaultTTSModel = "en_US-lessac-medium"
+	piperBin        = "/usr/local/lib/piper-tts/bin/piper"
+	piperVoicesDir  = "/var/lib/screentimectl/piper-voices"
+)
 
-var defaultTTSFallbackVoices = []string{"gmw/en-US-nyc", "gmw/en"}
-
-func sendTTS(username string, msg string, voices []string) {
+func sendTTS(username string, msg string, model string) {
 	uid := resolveUID(username)
 	if uid == "" {
 		return
 	}
-	xdg := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
-	if len(voices) == 0 {
-		voices = []string{defaultTTSVoice}
-	}
 
-	for i, voice := range voices {
-		cmd := newTTSCommand(username, voice, msg)
-		cmd.Env = append(os.Environ(), xdg)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			log.Printf("session: espeak-ng voice %q for %s: %v\ncmd: %s\noutput: %s", voice, username, err, cmd.Args, out)
-			if i < len(voices)-1 {
-				continue
-			}
-		}
+	tmp, err := os.CreateTemp("", "screentimectl-tts-*.wav")
+	if err != nil {
+		log.Printf("session: tts temp file: %v", err)
 		return
 	}
-}
+	tmpPath := tmp.Name()
+	tmp.Close()
+	defer os.Remove(tmpPath)
 
-func newTTSCommand(username, voice, msg string) *exec.Cmd {
-	return exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "espeak-ng", "-v", voice, msg)
+	modelPath := filepath.Join(piperVoicesDir, model+".onnx")
+	piperCmd := exec.Command(piperBin, "--model", modelPath, "--output_file", tmpPath)
+	piperCmd.Stdin = strings.NewReader(msg)
+	if out, err := piperCmd.CombinedOutput(); err != nil {
+		log.Printf("session: piper for %s: %v\noutput: %s", username, err, out)
+		return
+	}
+
+	xdg := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
+	playCmd := exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "paplay", tmpPath)
+	playCmd.Env = append(os.Environ(), xdg)
+	if out, err := playCmd.CombinedOutput(); err != nil {
+		log.Printf("session: paplay for %s: %v\noutput: %s", username, err, out)
+	}
 }
 
 func resolveUID(username string) string {

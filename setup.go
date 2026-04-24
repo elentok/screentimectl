@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
@@ -18,7 +20,12 @@ const (
 	trayPath              = "/usr/local/bin/screentimectl-tray"
 	pamService            = "/etc/pam.d/gdm-password"
 	pamRule               = "auth required pam_exec.so quiet stdout /usr/local/bin/screentimectl check-login"
-	aptDependencyPackages = "sudo libnotify-bin espeak-ng gnome-shell-extension-appindicator python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
+	aptDependencyPackages = "sudo libnotify-bin pulseaudio-utils python3-venv gnome-shell-extension-appindicator python3-gi gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1"
+
+	piperVenvPath      = "/usr/local/lib/piper-tts"
+	piperVoicesBaseURL = "https://huggingface.co/rhasspy/piper-voices/resolve/v1.0.0"
+	piperDefaultVoice  = defaultTTSModel
+	piperVoicePath     = "en/en_US/lessac/medium/en_US-lessac-medium.onnx"
 )
 
 func runSetup() error {
@@ -36,6 +43,8 @@ func runSetup() error {
 		{"install sudoers rule", installSudoers},
 		{"install PAM rule", installPAMRule},
 		{"install apt dependencies", installAptDependencies},
+		{"install piper-tts", installPiperTTS},
+		{"download piper voice model", installPiperVoice},
 		{"install tray indicator", installTrayIndicator},
 		{"install systemd service", installService},
 		{"reload systemd", reloadSystemd},
@@ -84,7 +93,10 @@ func createDataDir() error {
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return err
 	}
-	return chownToServiceUser(usageDir, logDir)
+	if err := os.MkdirAll(piperVoicesDir, 0755); err != nil {
+		return err
+	}
+	return chownToServiceUser(usageDir, logDir, piperVoicesDir)
 }
 
 func installPAMRule() error {
@@ -118,6 +130,54 @@ func installAptDependencies() error {
 	}
 	args := append([]string{"install", "-y", "--no-install-recommends"}, strings.Fields(aptDependencyPackages)...)
 	return runSetupCommand("apt-get", args...)
+}
+
+func installPiperTTS() error {
+	binPath := filepath.Join(piperVenvPath, "bin", "piper")
+	if _, err := os.Stat(binPath); err == nil {
+		return nil // already installed
+	}
+	if err := runSetupCommand("python3", "-m", "venv", piperVenvPath); err != nil {
+		return err
+	}
+	pipPath := filepath.Join(piperVenvPath, "bin", "pip")
+	return runSetupCommand(pipPath, "install", "--quiet", "piper-tts")
+}
+
+func installPiperVoice() error {
+	onnxPath := filepath.Join(piperVoicesDir, piperDefaultVoice+".onnx")
+	jsonPath := onnxPath + ".json"
+	if _, err := os.Stat(onnxPath); err == nil {
+		if _, err := os.Stat(jsonPath); err == nil {
+			return nil // already downloaded
+		}
+	}
+	baseURL := piperVoicesBaseURL + "/" + piperVoicePath
+	if err := downloadFile(baseURL+"?download=true", onnxPath); err != nil {
+		return fmt.Errorf("downloading model: %w", err)
+	}
+	if err := downloadFile(baseURL+".json?download=true", jsonPath); err != nil {
+		return fmt.Errorf("downloading model config: %w", err)
+	}
+	return nil
+}
+
+func downloadFile(url, dst string) error {
+	resp, err := http.Get(url) //nolint:gosec
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("HTTP %d fetching %s", resp.StatusCode, url)
+	}
+	f, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, resp.Body)
+	return err
 }
 
 func runSetupCommand(name string, args ...string) error {
