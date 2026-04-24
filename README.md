@@ -6,7 +6,7 @@ A daemon that lets parents remotely control screen time on Linux machines via Te
 
 - Ubuntu (systemd + systemd-logind)
 - A Telegram bot token (create one via [@BotFather](https://t.me/BotFather))
-- Runtime apt dependencies are installed by `setup`: `sudo`, `libnotify-bin`, `espeak-ng`, `gnome-shell-extension-appindicator`, `python3-gi`, `gir1.2-gtk-3.0`, `gir1.2-ayatanaappindicator3-0.1`
+- Runtime apt dependencies are installed by `setup`: `sudo`, `libnotify-bin`, `pulseaudio-utils`, `python3-venv`, `gnome-shell-extension-appindicator`, `python3-gi`, `gir1.2-gtk-3.0`, `gir1.2-ayatanaappindicator3-0.1`
 
 ## Install
 
@@ -50,8 +50,7 @@ notifications:
   thresholds: [30, 15, 5, 1]  # minutes remaining
 
 tts:
-  voice: "gmw/en-US"
-  fallback_voices: ["gmw/en-US-nyc", "gmw/en"]
+  model: "en_US-lessac-medium"
 
 users:
   - name: "bob"
@@ -129,6 +128,7 @@ curl "http://127.0.0.1:3847/status?user=bob"
 - Activity transitions (active/locked/idle/offline) are logged to `/var/lib/screentimectl/log/{user}/YYYY-MM-DD.log`
 - When time runs out: screen locks, account access is disabled via `chage -E 0`, and parents are notified
 - When time is granted via `/give`, the child receives a desktop notification and TTS announcement
+- TTS uses `piper-tts` with the `en_US-lessac-medium` voice model; generated WAV files are cached in `/var/lib/screentimectl/tts-cache/` so repeated messages play instantly
 - `setup` installs `/usr/local/bin/screentimectl-tray` and autostarts it for configured users to show remaining time from `status --compact`
 - Login is enforced via PAM (`pam_exec`) -- the child cannot log in outside allowed hours or with no time remaining
 - Parents can grant time or adjust hours at any time via Telegram

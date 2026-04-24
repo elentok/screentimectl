@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.4.0
 
 - Switched account lock/unlock from `passwd -l` / `passwd -u` to `chage -E 0` / `chage -E -1` to avoid unlock failures on accounts without a usable password hash.
 - Added `screentimectl status --compact` and a GNOME AppIndicator tray helper installed by `setup` to show remaining screen time from the user's session.
@@ -8,7 +8,9 @@
 - Added SSH-friendly CLI equivalents for Telegram admin actions: `give`, `lock`, `unlock`, `status [user]`, `hours`, and `say` now share the same parsing and default-user resolution.
 - Added `unlock [user] {duration}` / `/unlock [user] {duration}` to set remaining time and allow login. Positive `lock [user] [duration]` still works as a compatibility alias.
 - `setup` now installs all runtime apt dependencies, including notification and TTS packages.
-- Added configurable `tts.voice` and `tts.fallback_voices`; the default voice is `gmw/en-US` with `gmw/en-US-nyc` and `gmw/en` fallbacks.
+- Replaced `espeak-ng` with `piper-tts` for higher-quality TTS. `setup` installs piper-tts into a system-wide venv (`/usr/local/lib/piper-tts/`) and downloads the `en_US-lessac-medium` voice model. TTS output is cached so repeated messages (warnings, expiry notices) are played instantly without re-running inference.
+- `tts` config simplified to a single `model` field (e.g. `en_US-lessac-medium`); `voice` and `fallback_voices` are removed.
+- Fixed: if the computer is shut down while a user account is locked (time expired), the account is now automatically unlocked on daemon startup when the user is within their allowed hours and has time remaining.
 
 ## v0.3.0
 
@@ -19,6 +21,7 @@ Activity logging and status timeline.
 **Activity log** -- The daemon now tracks status transitions (active, locked, idle, offline) and writes them to per-user daily JSONL files at `/var/lib/screentimectl/log/{user}/YYYY-MM-DD.log`. Only transitions are logged, not every poll tick.
 
 **Timeline in /status** -- The `/status` command (Telegram, CLI, and HTTP) now shows a timeline of the day's activity:
+
 ```
 Today:
   08:00-10:30 (2h 30m) - active
@@ -54,10 +57,12 @@ timekpr-next continued counting screen time while the machine was locked, causin
 **Notifications and TTS** -- Desktop notifications (`notify-send`) and spoken alerts (`espeak-ng`) fire at configurable thresholds (default: 30, 15, 5, 1 minutes remaining).
 
 **New Telegram commands:**
+
 - `/hours bob 8-20` -- view or set allowed login hours
 - `/say bob message` -- speak a message to the child via TTS
 
 **New CLI commands:**
+
 - `screentimectl status` -- for the child to check their remaining time
 - `screentimectl ask` -- for the child to request more time
 - `screentimectl hours bob 8-20` -- view or set allowed hours from SSH
@@ -65,6 +70,7 @@ timekpr-next continued counting screen time while the machine was locked, causin
 - `screentimectl check-login` -- PAM login check
 
 **Configuration:**
+
 - Added `daily_limit_minutes` and `allowed_hours` per user
 - Added `notifications.thresholds` for alert timing
 - Usage data stored in `/var/lib/screentimectl/usage.json`
