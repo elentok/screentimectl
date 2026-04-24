@@ -429,6 +429,10 @@ func generateTTS(msg, model, dst string) error {
 		os.Remove(tmpPath)
 		return fmt.Errorf("%w\noutput: %s", err, out)
 	}
+	if err := os.Chmod(tmpPath, 0644); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
 	return os.Rename(tmpPath, dst)
 }
 
