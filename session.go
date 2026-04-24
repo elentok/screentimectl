@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log"
 	"os"
@@ -380,7 +381,13 @@ const (
 	defaultTTSModel = "en_US-lessac-medium"
 	piperBin        = "/usr/local/lib/piper-tts/bin/piper"
 	piperVoicesDir  = "/var/lib/screentimectl/piper-voices"
+	ttsCacheDir     = "/var/lib/screentimectl/tts-cache"
 )
+
+func ttsCachePath(model, msg string) string {
+	sum := sha256.Sum256([]byte(model + "\x00" + msg))
+	return filepath.Join(ttsCacheDir, fmt.Sprintf("%x.wav", sum))
+}
 
 func sendTTS(username string, msg string, model string) {
 	uid := resolveUID(username)
@@ -388,29 +395,41 @@ func sendTTS(username string, msg string, model string) {
 		return
 	}
 
-	tmp, err := os.CreateTemp("", "screentimectl-tts-*.wav")
-	if err != nil {
-		log.Printf("session: tts temp file: %v", err)
-		return
-	}
-	tmpPath := tmp.Name()
-	tmp.Close()
-	defer os.Remove(tmpPath)
-
-	modelPath := filepath.Join(piperVoicesDir, model+".onnx")
-	piperCmd := exec.Command(piperBin, "--model", modelPath, "--output_file", tmpPath)
-	piperCmd.Stdin = strings.NewReader(msg)
-	if out, err := piperCmd.CombinedOutput(); err != nil {
-		log.Printf("session: piper for %s: %v\noutput: %s", username, err, out)
-		return
+	wavPath := ttsCachePath(model, msg)
+	if _, err := os.Stat(wavPath); err != nil {
+		if err := generateTTS(msg, model, wavPath); err != nil {
+			log.Printf("session: piper for %s: %v", username, err)
+			return
+		}
 	}
 
 	xdg := fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%s", uid)
-	playCmd := exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "paplay", tmpPath)
+	playCmd := exec.Command("sudo", "--preserve-env=XDG_RUNTIME_DIR", "-u", username, "paplay", wavPath)
 	playCmd.Env = append(os.Environ(), xdg)
 	if out, err := playCmd.CombinedOutput(); err != nil {
 		log.Printf("session: paplay for %s: %v\noutput: %s", username, err, out)
 	}
+}
+
+func generateTTS(msg, model, dst string) error {
+	if err := os.MkdirAll(ttsCacheDir, 0755); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(ttsCacheDir, "tts-*.wav.tmp")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmp.Name()
+	tmp.Close()
+
+	modelPath := filepath.Join(piperVoicesDir, model+".onnx")
+	cmd := exec.Command(piperBin, "--model", modelPath, "--output_file", tmpPath)
+	cmd.Stdin = strings.NewReader(msg)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("%w\noutput: %s", err, out)
+	}
+	return os.Rename(tmpPath, dst)
 }
 
 func resolveUID(username string) string {
