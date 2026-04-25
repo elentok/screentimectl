@@ -358,8 +358,11 @@ func unlockAccount(username string) error {
 }
 
 func isWithinAllowedHours(hours AllowedHours) bool {
-	h := time.Now().Hour()
-	return h >= hours.Start && h < hours.End
+	now := time.Now()
+	current := now.Hour()*60 + now.Minute()
+	start := hours.Start*60 + hours.StartMinute
+	end := hours.End*60 + hours.EndMinute
+	return current >= start && current < end
 }
 
 // Notification helpers

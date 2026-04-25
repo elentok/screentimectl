@@ -256,7 +256,11 @@ func printStatusFromHTTP(username string, compact bool) {
 	fmt.Println(formatStatusSummary(ut, false))
 	if start, ok := data["allowed_hours_start"]; ok {
 		end := data["allowed_hours_end"]
-		fmt.Printf("Allowed hours: %dam - %dpm\n", int(start.(float64)), int(end.(float64))%12)
+		startMin, _ := data["allowed_hours_start_minute"].(float64)
+		endMin, _ := data["allowed_hours_end_minute"].(float64)
+		fmt.Printf("Allowed hours: %s - %s\n",
+			formatHour(int(start.(float64)), int(startMin)),
+			formatHour(int(end.(float64)), int(endMin)))
 	}
 	if status, ok := data["session_status"]; ok {
 		fmt.Printf("Session: %s\n", status)
@@ -391,8 +395,9 @@ func runCheckLogin() int {
 
 	// Check allowed hours
 	if !isWithinAllowedHours(u.AllowedHours) {
-		fmt.Printf("Login allowed only between %d:00 and %d:00.\n",
-			u.AllowedHours.Start, u.AllowedHours.End)
+		fmt.Printf("Login allowed only between %s and %s.\n",
+			formatHour(u.AllowedHours.Start, u.AllowedHours.StartMinute),
+			formatHour(u.AllowedHours.End, u.AllowedHours.EndMinute))
 		return 1
 	}
 

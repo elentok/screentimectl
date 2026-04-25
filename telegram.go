@@ -141,23 +141,85 @@ func (b *Bot) handleSay(chatID int64, args []string) {
 	b.send(chatID, text)
 }
 
-func parseHoursRange(s string) (int, int, error) {
+func parseHoursRange(s string) (AllowedHours, error) {
 	parts := strings.SplitN(s, "-", 2)
 	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("use format start-end (e.g. 8-18)")
+		return AllowedHours{}, fmt.Errorf("use format start-end (e.g. 8-18 or 8am-6:30pm)")
 	}
-	start, err := strconv.Atoi(parts[0])
-	if err != nil || start < 0 || start > 23 {
-		return 0, 0, fmt.Errorf("invalid start hour: %s", parts[0])
+	startH, startM, err := parseHour(parts[0])
+	if err != nil {
+		return AllowedHours{}, fmt.Errorf("invalid start: %w", err)
 	}
-	end, err := strconv.Atoi(parts[1])
-	if err != nil || end < 0 || end > 23 {
-		return 0, 0, fmt.Errorf("invalid end hour: %s", parts[1])
+	endH, endM, err := parseHour(parts[1])
+	if err != nil {
+		return AllowedHours{}, fmt.Errorf("invalid end: %w", err)
 	}
-	if start >= end {
-		return 0, 0, fmt.Errorf("start must be before end")
+	if startH*60+startM >= endH*60+endM {
+		return AllowedHours{}, fmt.Errorf("start must be before end")
 	}
-	return start, end, nil
+	return AllowedHours{Start: startH, StartMinute: startM, End: endH, EndMinute: endM}, nil
+}
+
+// parseHour parses a single hour value in 24-hour (e.g. "18") or 12-hour
+// am/pm format (e.g. "8am", "6:30pm").
+func parseHour(s string) (hour, minute int, err error) {
+	s = strings.TrimSpace(strings.ToLower(s))
+	var isPM, isAM bool
+	if strings.HasSuffix(s, "pm") {
+		isPM = true
+		s = s[:len(s)-2]
+	} else if strings.HasSuffix(s, "am") {
+		isAM = true
+		s = s[:len(s)-2]
+	}
+
+	if i := strings.Index(s, ":"); i >= 0 {
+		minute, err = strconv.Atoi(s[i+1:])
+		if err != nil || minute < 0 || minute > 59 {
+			return 0, 0, fmt.Errorf("invalid minutes in %q", s)
+		}
+		s = s[:i]
+	}
+
+	hour, err = strconv.Atoi(s)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid hour %q", s)
+	}
+
+	if isPM || isAM {
+		if hour < 1 || hour > 12 {
+			return 0, 0, fmt.Errorf("hour %d out of range for am/pm", hour)
+		}
+		if isPM && hour != 12 {
+			hour += 12
+		} else if isAM && hour == 12 {
+			hour = 0
+		}
+	} else {
+		if hour < 0 || hour > 23 {
+			return 0, 0, fmt.Errorf("hour %d out of range", hour)
+		}
+	}
+	return hour, minute, nil
+}
+
+// formatHour formats an hour+minute pair as a human-readable am/pm string,
+// omitting :00 when minutes are zero (e.g. "8am", "6:30pm").
+func formatHour(h, m int) string {
+	suffix := "am"
+	if h >= 12 {
+		suffix = "pm"
+		if h > 12 {
+			h -= 12
+		}
+	}
+	if h == 0 {
+		h = 12
+	}
+	if m == 0 {
+		return fmt.Sprintf("%d%s", h, suffix)
+	}
+	return fmt.Sprintf("%d:%02d%s", h, m, suffix)
 }
 
 func capitalize(s string) string {

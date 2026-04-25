@@ -1,6 +1,8 @@
 package main
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestAdminCommandsDefaultUser(t *testing.T) {
 	restore := stubSessionFuncs()
@@ -155,5 +157,57 @@ func TestAdminCommandsParseUserDurationRequiresDurationForExplicitUser(t *testin
 
 	if _, _, err := cmd.parseUserDuration([]string{"bob"}); err == nil {
 		t.Fatal("parseUserDuration explicit user without duration succeeded, want error")
+	}
+}
+
+func TestParseHoursRange(t *testing.T) {
+	cases := []struct {
+		input    string
+		wantAH   AllowedHours
+		wantErr  bool
+	}{
+		{"8-18", AllowedHours{Start: 8, End: 18}, false},
+		{"8am-6pm", AllowedHours{Start: 8, End: 18}, false},
+		{"8am-6:30pm", AllowedHours{Start: 8, End: 18, EndMinute: 30}, false},
+		{"8:30am-6pm", AllowedHours{Start: 8, StartMinute: 30, End: 18}, false},
+		{"12am-12pm", AllowedHours{Start: 0, End: 12}, false},
+		{"8-18", AllowedHours{Start: 8, End: 18}, false},
+		{"18-8", AllowedHours{}, true},  // start after end
+		{"8am",  AllowedHours{}, true},  // no separator
+		{"25-1", AllowedHours{}, true},  // out of range
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			got, err := parseHoursRange(tc.input)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("parseHoursRange(%q) succeeded, want error", tc.input)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parseHoursRange(%q): %v", tc.input, err)
+			}
+			if got != tc.wantAH {
+				t.Fatalf("parseHoursRange(%q) = %+v, want %+v", tc.input, got, tc.wantAH)
+			}
+		})
+	}
+}
+
+func TestFormatHour(t *testing.T) {
+	cases := []struct{ h, m int; want string }{
+		{8, 0, "8am"},
+		{18, 0, "6pm"},
+		{18, 30, "6:30pm"},
+		{0, 0, "12am"},
+		{12, 0, "12pm"},
+		{8, 30, "8:30am"},
+	}
+	for _, tc := range cases {
+		if got := formatHour(tc.h, tc.m); got != tc.want {
+			t.Errorf("formatHour(%d, %d) = %q, want %q", tc.h, tc.m, got, tc.want)
+		}
 	}
 }

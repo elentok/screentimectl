@@ -97,7 +97,9 @@ func handleStatus(w http.ResponseWriter, r *http.Request, cfg *Config, mgr *Sess
 	}
 	if u := cfg.getUser(user); u != nil {
 		resp["allowed_hours_start"] = u.AllowedHours.Start
+		resp["allowed_hours_start_minute"] = u.AllowedHours.StartMinute
 		resp["allowed_hours_end"] = u.AllowedHours.End
+		resp["allowed_hours_end_minute"] = u.AllowedHours.EndMinute
 	}
 
 	if mgr.actLog != nil {

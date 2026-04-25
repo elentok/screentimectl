@@ -92,9 +92,11 @@ func (c *AdminCommands) StatusForUser(user string) (string, error) {
 	}
 
 	u := c.cfg.getUser(user)
-	text := fmt.Sprintf("%s has %s remaining (used %s today)\nAllowed hours: %dam - %dpm\nSession: %s",
+	text := fmt.Sprintf("%s has %s remaining (used %s today)\nAllowed hours: %s - %s\nSession: %s",
 		capitalize(user), ut.RemainingStr(), ut.UsedStr(),
-		u.AllowedHours.Start, u.AllowedHours.End%12, ut.SessionStatus)
+		formatHour(u.AllowedHours.Start, u.AllowedHours.StartMinute),
+		formatHour(u.AllowedHours.End, u.AllowedHours.EndMinute),
+		ut.SessionStatus)
 
 	if c.mgr.actLog != nil {
 		entries, err := c.mgr.actLog.ReadDay(user, today())
@@ -125,22 +127,26 @@ func (c *AdminCommands) Hours(args []string) (string, error) {
 
 	u := c.cfg.getUser(user)
 	if hours == "" {
-		return fmt.Sprintf("Allowed hours for %s: %dam - %dpm",
-			capitalize(user), u.AllowedHours.Start, u.AllowedHours.End%12), nil
+		return fmt.Sprintf("Allowed hours for %s: %s - %s",
+			capitalize(user),
+			formatHour(u.AllowedHours.Start, u.AllowedHours.StartMinute),
+			formatHour(u.AllowedHours.End, u.AllowedHours.EndMinute)), nil
 	}
 
-	start, end, err := parseHoursRange(hours)
+	ah, err := parseHoursRange(hours)
 	if err != nil {
 		return "", fmt.Errorf("invalid hours: %w", err)
 	}
 
-	u.AllowedHours = AllowedHours{Start: start, End: end}
+	u.AllowedHours = ah
 	if err := c.cfg.save(configPath); err != nil {
 		return "", fmt.Errorf("failed to save config: %w", err)
 	}
 
-	return fmt.Sprintf("Updated allowed hours for %s: %dam - %dpm",
-		capitalize(user), start, end%12), nil
+	return fmt.Sprintf("Updated allowed hours for %s: %s - %s",
+		capitalize(user),
+		formatHour(ah.Start, ah.StartMinute),
+		formatHour(ah.End, ah.EndMinute)), nil
 }
 
 func (c *AdminCommands) Say(args []string) (string, error) {
@@ -208,7 +214,7 @@ func (c *AdminCommands) parseUserOptionalHours(args []string) (string, string, e
 		if c.cfg.isValidUser(args[0]) {
 			return args[0], "", nil
 		}
-		if _, _, err := parseHoursRange(args[0]); err != nil {
+		if _, err := parseHoursRange(args[0]); err != nil {
 			return "", "", fmt.Errorf("unknown user: %s", args[0])
 		}
 		user, err := c.defaultUser()

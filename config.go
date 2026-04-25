@@ -34,8 +34,10 @@ type UserConfig struct {
 }
 
 type AllowedHours struct {
-	Start int `yaml:"start"`
-	End   int `yaml:"end"`
+	Start       int `yaml:"start"`
+	StartMinute int `yaml:"start_minute,omitempty"`
+	End         int `yaml:"end"`
+	EndMinute   int `yaml:"end_minute,omitempty"`
 }
 
 type NotificationConfig struct {
